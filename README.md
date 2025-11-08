@@ -92,127 +92,126 @@ ExplainDL/
 
 ## ⚙️ Installation and Setup
 
-### 1. Clone the Repository
-
+### **1. Clone the Repository**
 ```bash
 git clone https://github.com/<your-username>/ExplainDL.git
 cd ExplainDL
 
-2. Create and Activate a Virtual Environment
-python -m venv venv
-source venv/bin/activate        # for Linux/Mac
-venv\Scripts\activate           # for Windows
 
-3. Install Dependencies
+### **2. Create and Activate a Virtual Environment**
+
+```bash
+python -m venv venv
+# For Linux/Mac
+source venv/bin/activate
+# For Windows
+venv\Scripts\activate
+
+
+### 3. Install Dependencies
+```bash
 pip install -r requirements.txt
 
-4. Run the Application
+### 4. Run the Application
+```bash
 streamlit run app.py
 
+The app will start locally and can be accessed via:
+👉 **http://localhost:8501**
 
-The app will start locally.
-You can access it via: http://localhost:8501
+---
 
-📂 Supported Data Formats
-Data Type	Supported File Format	Example
-Tabular	.csv, .xlsx	Medical / Financial data
-Image	.zip (with subfolders per class)	Cats vs Dogs, Human vs Object
-Text	.txt (each line: label,text)	Sentiment dataset
-📊 Output and Results
+## 📂 Supported Data Formats
+
+| Data Type | Supported File Format | Example |
+| :--- | :--- | :--- |
+| **Tabular** | `.csv`, `.xlsx` | Medical / Financial data |
+| **Image** | `.zip` (with subfolders per class) | Cats vs Dogs, Human vs Object |
+| **Text** | `.txt` (each line: label,text) | Sentiment dataset |
+
+## 📊 Output and Results
 
 After running the automated pipeline, ExplainDL generates:
 
-Performance Metrics:
+### Performance Metrics
+* **Accuracy**
+* **Precision**
+* **Recall**
+* **F1-score**
+* **Confusion Matrix** & per-class classification report
 
-Accuracy, Precision, Recall, F1-score
+### Explainability Visuals
+* **SHAP** → Feature importance (tabular) 
+* **LIME** → Instance-level feature influence 
+* **Grad-CAM** → Heatmaps highlighting key regions in images 
 
-Confusion Matrix & per-class classification report
+### Auto-Generated PDF Report
+> Includes metrics summary, visuals, and model insights.
 
-Explainability Visuals:
+---
 
-SHAP: Feature importance (tabular)
+## 🧪 Example Usage
 
-LIME: Instance-level feature influence
+1.  Open the **Streamlit** web app.
+2.  Upload your dataset (`.csv`, `.zip`, or `.txt`).
+3.  Configure options in the sidebar:
+    * **Auto Mode** (ON by default)
+    * **Show Explainability Report** (ON/OFF)
+    * **Enable Hyperparameter Tuning** (Optional)
+4.  Click **Start Analysis**.
+5.  Wait for the pipeline to complete.
+6.  View model metrics and download the **PDF report**.
 
-Grad-CAM: Heatmaps highlighting key regions in images
+---
 
-Auto-generated PDF Report
+## 🧠 Technologies Used
 
-Includes metrics summary, visuals, and model insights
+| Category | Tools / Frameworks |
+| :--- | :--- |
+| **Language** | Python |
+| **Frontend** | Streamlit |
+| **Deep Learning** | TensorFlow, Keras |
+| **Explainability (XAI)** | SHAP, LIME, Grad-CAM |
+| **Data Handling** | Pandas, NumPy, Scikit-learn |
+| **Hyperparameter Tuning** | Keras-Tuner |
+| **Visualization** | Matplotlib, Seaborn |
+| **Documentation** | Markdown, FPDF |
 
-🧪 Example Usage
+---
 
-Open the Streamlit web app.
+## 🧩 Current Limitations
 
-Upload your dataset (.csv, .zip, or .txt).
+* **Accuracy** on small datasets may be low due to limited training data.
+* **Grad-CAM** sometimes fails for single-class image datasets.
+* Models are not yet exported after training.
+* Performance tuning is basic; can be expanded using advanced search spaces.
 
-Configure options in the sidebar:
+---
 
-Auto Mode (ON by default)
+## 🚀 Future Enhancements
 
-Show Explainability Report (ON/OFF)
+* Cloud deployment for remote model execution.
+* Model export functionality (`.h5` / `.onnx`).
+* Support for multi-label and regression tasks.
+* Integration of advanced models (Transformers, EfficientNetV2).
+* Enhanced visual dashboards for explainability.
+* Comparative benchmarking against public datasets.
+* Potential patent filing for the combined AutoML + XAI workflow.
 
-Enable Hyperparameter Tuning (Optional)
+---
 
-Click Start Analysis.
-
-Wait for the pipeline to complete.
-
-View model metrics and download the PDF report.
-
-🧠 Technologies Used
-Category	Tools / Frameworks
-Language	Python
-Frontend	Streamlit
-Deep Learning	TensorFlow, Keras
-Explainability (XAI)	SHAP, LIME, Grad-CAM
-Data Handling	Pandas, NumPy, Scikit-learn
-Hyperparameter Tuning	Keras-Tuner
-Visualization	Matplotlib, Seaborn
-Documentation	Markdown, FPDF
-
-🧩 Current Limitations
-
-Accuracy on small datasets may be low due to limited training data.
-
-Grad-CAM sometimes fails for single-class image datasets.
-
-Models are not yet exported after training.
-
-Performance tuning is basic; can be expanded using advanced search spaces.
-
-🚀 Future Enhancements
-
-Cloud deployment for remote model execution.
-
-Model export functionality (.h5 / .onnx).
-
-Support for multi-label and regression tasks.
-
-Integration of advanced models (Transformers, EfficientNetV2).
-
-Enhanced visual dashboards for explainability.
-
-Comparative benchmarking against public datasets.
-
-Potential patent filing for the combined AutoML + XAI workflow.
-
-📚 References
+## 📚 References
 
 This project draws inspiration from:
 
-AutoML frameworks: AutoKeras
-, Auto-Sklearn
+* AutoML frameworks: **AutoKeras**, **Auto-Sklearn**
+* Explainability libraries: **SHAP**, **LIME**, **Grad-CAM**
+* **TensorFlow** & **Keras** official documentation
+* Research papers in Explainable AI and Automated Machine Learning
 
-Explainability libraries: SHAP
-, LIME
-, Grad-CAM
+---
 
-TensorFlow & Keras official documentation
+## 🧾 License
 
-Research papers in Explainable AI and Automated Machine Learning
-
-🧾 License
-
-This project is intended for educational and research purposes only.
-© 2025 Swayam Swaroop Sahu. All rights reserved.
+> This project is intended for educational and research purposes only.
+> © 2025 Swayam Swaroop Sahu. All rights reserved.
