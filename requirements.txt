@@ -1,0 +1,34 @@
+# Core
+streamlit
+pandas
+numpy
+scikit-learn
+
+# Deep Learning
+tensorflow
+torch
+torchvision
+keras-tuner
+optuna
+
+# NLP & Transformers
+nltk
+transformers
+
+# Explainability
+shap
+lime
+grad-cam
+
+# Visualization
+matplotlib
+seaborn
+plotly
+Pillow
+
+# Utilities
+joblib
+tqdm
+openpyxl
+
+fpdf
