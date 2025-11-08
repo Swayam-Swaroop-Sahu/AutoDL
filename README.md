@@ -43,47 +43,49 @@ ExplainDL combines **AutoML (automation)** and **XAI (explainable AI)** principl
 
 ## 🏗️ Project Structure
 
+```bash
 ExplainDL/
 │
-├── app.py # Streamlit front-end app
+├── app.py                     # Streamlit front-end app
 │
 ├── explainDL/
-│ ├── init.py
-│ │
-│ ├── data_input/ # Handles data upload and type detection
-│ │ ├── detect_type.py
-│ │ ├── tabular_loader.py
-│ │ ├── image_loader.py
-│ │ └── text_loader.py
-│ │
-│ ├── preprocessing/ # Data cleaning & preprocessing
-│ │ ├── tabular_preprocess.py
-│ │ ├── image_preprocess.py
-│ │ └── text_preprocess.py
-│ │
-│ ├── model_selection/ # Auto model selection logic
-│ │ ├── auto_model_selector.py
-│ │ ├── tabular_models.py
-│ │ ├── image_models.py
-│ │ └── text_models.py
-│ │
-│ ├── training/ # Model training and evaluation
-│ │ └── trainer.py
-│ │
-│ ├── explainability/ # Explainability modules
-│ │ ├── shap_explainer.py
-│ │ ├── lime_explainer.py
-│ │ ├── gradcam_explainer.py
-│ │ └── report_generator.py
-│ │
-│ ├── utils/ # Helper functions
-│ │ ├── file_utils.py
-│ │ └── visualization_utils.py
-│ │
-│ └── pipeline.py # Core end-to-end orchestrator
+│   ├── __init__.py
+│   │
+│   ├── data_input/            # Handles data upload and type detection
+│   │   ├── detect_type.py
+│   │   ├── tabular_loader.py
+│   │   ├── image_loader.py
+│   │   └── text_loader.py
+│   │
+│   ├── preprocessing/         # Data cleaning & preprocessing
+│   │   ├── tabular_preprocess.py
+│   │   ├── image_preprocess.py
+│   │   └── text_preprocess.py
+│   │
+│   ├── model_selection/       # Auto model selection logic
+│   │   ├── auto_model_selector.py
+│   │   ├── tabular_models.py
+│   │   ├── image_models.py
+│   │   └── text_models.py
+│   │
+│   ├── training/              # Model training and evaluation
+│   │   └── trainer.py
+│   │
+│   ├── explainability/        # Explainability modules
+│   │   ├── shap_explainer.py
+│   │   ├── lime_explainer.py
+│   │   ├── gradcam_explainer.py
+│   │   └── report_generator.py
+│   │
+│   ├── utils/                 # Helper functions
+│   │   ├── file_utils.py
+│   │   └── visualization_utils.py
+│   │
+│   └── pipeline.py            # Core end-to-end orchestrator
 │
-├── requirements.txt # All dependencies
-└── README.md # Project documentation (this file)
+├── requirements.txt           # All dependencies
+└── README.md                  # Project documentation (this file)
+
 
 
 ---
