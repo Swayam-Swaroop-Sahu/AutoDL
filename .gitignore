@@ -1,0 +1,8 @@
+# Large media or dataset files
+*.mp4
+*.zip
+*.csv
+*.xlsx
+*.pptx
+*.docx
+*.pdf
