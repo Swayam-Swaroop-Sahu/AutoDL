@@ -99,7 +99,7 @@ Powered by **Keras-Tuner RandomSearch**
 **PROJECT STRUCTURE**
 ------------------------
 
-`ExplainDL/
+ExplainDL/
 │
 ├── app.py                        → Streamlit front-end UI
 │
@@ -114,7 +114,7 @@ Powered by **Keras-Tuner RandomSearch**
 │   └── utils/                    → Helper utilities
 │
 ├── requirements.txt              → Dependency list
-└── README.md                     → Project documentation`
+└── README.md                     → Project documentation
 
 * * * * *
 
