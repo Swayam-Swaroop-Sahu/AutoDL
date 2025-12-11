@@ -99,7 +99,7 @@ def predict_pipeline(model_dir: str, dataset_path: str):
     # ---------------------------------------------------------
     report_path = None
     try:
-        report_path = generate_predict_report(pred_class_names, class_names, model_dir)
+        report_path = generate_predict_report(pred_class_names, class_names, model_dir,dataset_type)
     except Exception:
         pass
 

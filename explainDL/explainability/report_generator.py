@@ -174,7 +174,23 @@ def generate_train_report(history, metrics, model_name, output_dir):
 # =====================================================================
 # PREDICTION REPORT
 # =====================================================================
-def generate_predict_report(predictions, class_names, output_dir):
+def generate_predict_report(predictions, class_names, output_dir,dataset_type):
+    # Load dataset_type from the trained model’s meta.json
+    meta_path = os.path.join(output_dir, "..", "meta.json")
+    dataset_type_from_meta = None
+
+    try:
+        with open(meta_path, "r") as m:
+            meta = json.load(m)
+            dataset_type_from_meta = meta.get("dataset_type")
+    except:
+        dataset_type_from_meta = None
+
+    # Override dataset_type if available
+    if dataset_type_from_meta:
+        dataset_type = dataset_type_from_meta
+
+
     os.makedirs(output_dir, exist_ok=True)
 
     preds = np.array(predictions)
@@ -201,7 +217,7 @@ def generate_predict_report(predictions, class_names, output_dir):
     _save_fig_to_png(fig, pie_path)
 
     # ------------------------------------------------------
-    # NON-TECHNICAL SUMMARY (IMPROVED)
+    # NON-TECHNICAL SUMMARY (DATASET-AWARE EXPLANATION)
     # ------------------------------------------------------
     explanation_path = os.path.join(output_dir, "prediction_explanation.txt")
 
@@ -213,54 +229,102 @@ def generate_predict_report(predictions, class_names, output_dir):
 
     dominance_ratio = counts.max() / counts.sum()
 
-    with open(explanation_path, "w") as f:
-        f.write("ExplainDL — Simple Prediction Explanation\n")
-        f.write("=========================================\n\n")
+    def label_map(idx):
+        return class_names[idx] if class_names and idx < len(class_names) else str(idx)
+
+    # ======================================================
+    # WRITE EXPLANATION BASED ON DATASET TYPE
+    # ======================================================
+    with open(explanation_path, "w", encoding="utf-8") as f:
+
+        f.write("Simple Prediction Explanation\n")
+        f.write("==========================================\n\n")
 
         f.write(f"Total Samples: {len(preds)}\n")
-        f.write(f"Most Frequent Predicted Class: {most_class_name} ({counts.max()} samples)\n")
-        f.write(f"Class Distribution: {dict(zip(unique.tolist(), counts.tolist()))}\n\n")
+        f.write(f"Most Frequent Predicted Class: {label_map(int(most_class))} ({counts.max()} samples)\n")
+        f.write(f"Class Distribution: { {label_map(int(k)): int(v) for k,v in zip(unique, counts)} }\n\n")
 
-        # Behaviour interpretation
-        f.write("Interpretation:\n")
-        if dominance_ratio > 0.85:
+        # --------------------------------------------------
+        # TABULAR EXPLANATION
+        # --------------------------------------------------
+        if dataset_type == "tabular":
+            f.write("Interpretation (Tabular Data):\n")
+            if dominance_ratio > 0.85:
+                f.write("- One class dominates most predictions.\n"
+                        "- This often points to strong feature similarity or dataset imbalance.\n\n")
+            elif dominance_ratio > 0.55:
+                f.write("- A moderate class dominance suggests clear but not overwhelming patterns.\n\n")
+            else:
+                f.write("- Predictions are well spread; the model recognizes multiple feature patterns.\n\n")
+
             f.write(
-                "- The model predicts one class for almost all samples.\n"
-                "- This usually indicates **class imbalance** or insufficient feature variation.\n"
-                "- You may consider adding more training samples from other classes.\n\n"
+                "How the model made decisions:\n"
+                "- It learned relationships between numerical/text features.\n"
+                "- Rows with similar feature values tend to receive the same class.\n"
+                "- SHAP values (if enabled) highlight which features contributed most.\n\n"
             )
-        elif dominance_ratio > 0.55:
+
             f.write(
-                "- One class appears more likely than others, but not overwhelmingly.\n"
-                "- This suggests the model has learned stronger patterns for this class.\n"
-                "- However, it still identifies other classes reasonably.\n\n"
+                "Tips for Users:\n"
+                "- If predictions seem biased, inspect dataset balance.\n"
+                "- Add more diverse examples for underrepresented classes.\n"
+                "- Use the confusion matrix to verify class-wise performance.\n"
             )
-        else:
+
+        # --------------------------------------------------
+        # IMAGE EXPLANATION
+        # --------------------------------------------------
+        if dataset_type == "image":
+            f.write("Interpretation (Image Data):\n")
+            f.write("- The model identifies objects based on shapes, edges, colors, and textures.\n")
+            if dominance_ratio > 0.7:
+                f.write("- Many images appear visually similar, leading to one dominant prediction.\n")
+            else:
+                f.write("- The variation in predictions suggests diverse visual patterns.\n")
+            f.write("\n")
+
             f.write(
-                "- Predictions are fairly well distributed across classes.\n"
-                "- The model seems balanced and confident for multiple patterns.\n\n"
+                "How the model sees the images:\n"
+                "- Convolutional filters detect patterns like corners, textures, and contours.\n"
+                "- Grad-CAM highlights which regions influenced each prediction.\n\n"
             )
 
-        # Class meaning explanation
-        f.write("What this means for your data:\n")
-        f.write(
-            "- The system groups similar samples based on patterns learned during training.\n"
-            "- Higher counts for one class mean your input data resembles that category.\n"
-            "- If class names represent categories (e.g., 'spam', 'cat', 'positive'),\n"
-            "  they help users understand the meaning of predictions.\n\n"
-        )
+            f.write(
+                "Tips for Users:\n"
+                "- Ensure images are clear, well-lit, and non-blurry.\n"
+                "- Background noise may cause misclassification.\n"
+                "- Provide diverse training examples for higher robustness.\n"
+            )
 
-        # Next step suggestions
-        f.write("Suggestions for Non-Technical Users:\n")
-        f.write(
-            "- Use the prediction distribution chart to visually understand class frequency.\n"
-            "- If one class dominates unexpectedly, consider improving dataset balance.\n"
-            "- You may upload more diverse examples for better training.\n"
-            "- For business decisions, always examine multiple samples before concluding.\n"
-        )
+        # --------------------------------------------------
+        # TEXT EXPLANATION
+        # --------------------------------------------------
+        if dataset_type == "text":
+            f.write("Interpretation (Text Data):\n")
+            if dominance_ratio > 0.75:
+                f.write("- The uploaded text samples mostly match the tone/topic of one class.\n")
+            else:
+                f.write("- The text contains mixed themes or sentiments, leading to varied predictions.\n")
+            f.write("\n")
 
+            f.write(
+                "How the model understands text:\n"
+                "- It analyzes word patterns, key phrases, sentiment cues, and writing style.\n"
+                "- LSTM/BiLSTM models detect long-range dependencies.\n"
+                "- Text-CNN captures short local patterns.\n\n"
+            )
 
-    # PDF Build
+            f.write(
+                "Tips for Users:\n"
+                "- If predictions seem skewed, check whether samples share similar tone.\n"
+                "- Add more topic variety if you want clearer class separation.\n"
+                "- Longer text generally produces more reliable predictions.\n"
+            )
+
+        
+    # ------------------------------------------------------
+    # PDF BUILD
+    # ------------------------------------------------------
     pdf_path = os.path.join(output_dir, "predict_report.pdf")
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=10)
@@ -280,12 +344,12 @@ def generate_predict_report(predictions, class_names, output_dir):
     pdf.cell(0, 8, "Prediction Pie Chart", ln=True)
     pdf.image(pie_path, x=15, w=180)
 
-    # Explanation
+    # Explanation section
     pdf.add_page()
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 6, "Explanation", ln=True)
     pdf.set_font("Arial", "", 10)
-    with open(explanation_path) as f:
+    with open(explanation_path, "r", encoding="utf-8") as f:
         for line in f:
             pdf.multi_cell(0, 6, line)
 
