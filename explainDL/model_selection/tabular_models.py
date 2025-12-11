@@ -1,30 +1,66 @@
+# explainDL/model_selection/tabular_models.py
 """
-tabular_models.py
------------------
-Improved neural network architectures for structured tabular data.
-Includes BatchNorm, Dropout and flexible output configuration.
+Candidate tabular neural architectures.
+These are lightweight MLPs intended for quick evaluation and training.
+They are compiled with a loss compatible with integer labels (sparse categorical)
+when multiclass, and binary_crossentropy for binary classification.
 """
 
+from typing import Union
 from tensorflow.keras import models, layers, optimizers
 
-def build_mlp(input_shape, output_units=1, activation='sigmoid', loss='binary_crossentropy'):
-    """
-    Improved MLP for tabular data.
-    - BatchNormalization and Dropout added
-    - Output units/activation/loss are passed in to support binary/multi-class
-    """
-    model = models.Sequential([
-        layers.Input(shape=input_shape),
-        layers.Dense(256, activation='relu'),
-        layers.BatchNormalization(),
-        layers.Dropout(0.4),
-        layers.Dense(128, activation='relu'),
-        layers.BatchNormalization(),
-        layers.Dropout(0.3),
-        layers.Dense(output_units, activation=activation)
-    ])
 
-    model.compile(optimizer=optimizers.Adam(learning_rate=1e-3),
-                  loss=loss,
-                  metrics=['accuracy'])
+def _finalize(model: models.Model, num_classes: int):
+    """
+    Adds the final classification head (if not already added) and compiles.
+    We use:
+      - binary_crossentropy + sigmoid for binary (num_classes == 2)
+      - sparse_categorical_crossentropy + softmax for multiclass
+    The trainer passes integer labels, so sparse loss is appropriate.
+    """
+    if num_classes == 2:
+        # Ensure single logit output for binary classification
+        model.add(layers.Dense(1, activation="sigmoid"))
+        model.compile(
+            optimizer=optimizers.Adam(1e-3),
+            loss="binary_crossentropy",
+            metrics=["accuracy"],
+        )
+    else:
+        model.add(layers.Dense(num_classes, activation="softmax"))
+        model.compile(
+            optimizer=optimizers.Adam(1e-3),
+            loss="sparse_categorical_crossentropy",
+            metrics=["accuracy"],
+        )
     return model
+
+
+def build_mlp_small(num_features: int, num_classes: int):
+    model = models.Sequential()
+    model.add(layers.Input(shape=(num_features,)))
+    model.add(layers.Dense(64, activation="relu"))
+    model.add(layers.Dropout(0.2))
+    return _finalize(model, num_classes)
+
+
+def build_mlp_medium(num_features: int, num_classes: int):
+    model = models.Sequential()
+    model.add(layers.Input(shape=(num_features,)))
+    model.add(layers.Dense(128, activation="relu"))
+    model.add(layers.BatchNormalization())
+    model.add(layers.Dropout(0.3))
+    model.add(layers.Dense(64, activation="relu"))
+    return _finalize(model, num_classes)
+
+
+def build_mlp_large(num_features: int, num_classes: int):
+    model = models.Sequential()
+    model.add(layers.Input(shape=(num_features,)))
+    model.add(layers.Dense(256, activation="relu"))
+    model.add(layers.BatchNormalization())
+    model.add(layers.Dropout(0.4))
+    model.add(layers.Dense(128, activation="relu"))
+    model.add(layers.Dropout(0.3))
+    model.add(layers.Dense(64, activation="relu"))
+    return _finalize(model, num_classes)

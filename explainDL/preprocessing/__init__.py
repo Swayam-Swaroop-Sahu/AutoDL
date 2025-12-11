@@ -1,12 +1,14 @@
-"""
-Preprocessing Submodule
------------------------
-Handles automatic preprocessing, cleaning, and transformation of datasets
-before they are passed into deep learning models.
+# explainDL/preprocessing/__init__.py
 
-Modules:
-- tabular_preprocess: Cleaning and encoding of structured datasets
-- image_preprocess: Image resizing and normalization
-- text_preprocess: Tokenization and text cleaning
-- common_utils: Shared helper functions
-"""
+from .tabular_preprocessor import TabularPreprocessor
+from .image_preprocessor import ImagePreprocessor
+from .text_preprocessor import TextPreprocessor
+from .common_utils import handle_missing_values, detect_target_column
+
+__all__ = [
+    "TabularPreprocessor",
+    "ImagePreprocessor",
+    "TextPreprocessor",
+    "handle_missing_values",
+    "detect_target_column",
+]

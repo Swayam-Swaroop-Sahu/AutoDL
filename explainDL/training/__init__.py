@@ -1,9 +1,11 @@
-"""
-Training Submodule
-------------------
-Handles unified model training, evaluation, and metric computation.
+# explainDL/training/__init__.py
 
-Modules:
-- trainer: Core training loop that fits models to the data
-- metrics: Helper functions for computing evaluation metrics
-"""
+from .trainer import train_model
+from .metrics import compute_metrics
+from .callbacks import get_callbacks
+
+__all__ = [
+    "train_model",
+    "compute_metrics",
+    "get_callbacks",
+]

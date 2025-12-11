@@ -1,117 +1,293 @@
 """
-report_generator.py
--------------------
-Generates combined explainability reports and saves them as PDF.
-Includes confusion matrix and key metrics.
+ExplainDL – Extended Report Generator
+-------------------------------------
+
+Adds:
+- Confusion matrix
+- Precision / Recall / F1 / Accuracy
+- Classification report text
+- Prediction histogram
+- Prediction pie chart
+- Simple explainability text
 """
 
-from fpdf import FPDF
 import os
+import json
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
-import pandas as pd
+from fpdf import FPDF
+from sklearn.metrics import (
+    confusion_matrix,
+    classification_report,
+    precision_recall_fscore_support,
+    accuracy_score
+)
 
-class ExplainDLReport:
-    def __init__(self, output_path="ExplainDL_Report.pdf"):
-        self.output_path = output_path
-        self.pdf = FPDF()
-        self.pdf.set_auto_page_break(auto=True, margin=15)
-
-    def add_title(self, title: str):
-        self.pdf.add_page()
-        self.pdf.set_font("Arial", 'B', 16)
-        self.pdf.cell(0, 10, title, ln=True, align='C')
-
-    def add_text(self, text: str):
-        self.pdf.set_font("Arial", size=12)
-        self.pdf.multi_cell(0, 8, text)
-
-    def add_image(self, img_path: str, width=170):
-        if os.path.exists(img_path):
-            self.pdf.image(img_path, w=width)
-
-    def save(self):
-        self.pdf.output(self.output_path)
-        return self.output_path
-
-def _save_figure_to_png(fig, path):
-    fig.savefig(path, bbox_inches="tight")
+# ------------------------------------------------------------
+# Helper: Save a matplotlib figure
+# ------------------------------------------------------------
+def _save_fig_to_png(fig, target_path):
+    fig.savefig(target_path, bbox_inches="tight", dpi=160)
     plt.close(fig)
+    return target_path
 
-def _add_confusion_matrix_image(metrics_dict, out_path="confusion_matrix.png"):
-    cm = metrics_dict.get("confusion_matrix")
-    if cm is None:
-        return None
-    fig, ax = plt.subplots(figsize=(4,4))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", cbar=False, ax=ax)
-    ax.set_title("Confusion Matrix")
-    _save_figure_to_png(fig, out_path)
-    return out_path
 
-def generate_report(metrics_df, metrics_dict=None, shap_fig=None, lime_fig=None, gradcam_fig=None, output_path="ExplainDL_Report.pdf"):
-    report = ExplainDLReport(output_path)
-    report.add_title("ExplainDL Automated Analysis Report")
+def _dict_to_kv_lines(d: dict, indent: int = 0):
+    lines = []
+    for k, v in d.items():
+        if isinstance(v, dict):
+            lines.append(" " * indent + f"{k}:")
+            lines.extend(_dict_to_kv_lines(v, indent + 2))
+        else:
+            lines.append(" " * indent + f"{k}: {v}")
+    return lines
 
-    if metrics_df is not None and not metrics_df.empty:
-        report.add_text("Performance Summary:\n")
-        # Convert metrics_df to string
-        report.add_text(metrics_df.to_string(index=False))
 
-    if metrics_dict:
-        # Add detailed classification report text if available
-        class_report = metrics_dict.get("classification_report")
-        if class_report:
-            report.add_text("\nClassification Report (per class):")
-            try:
-                # produce a small DataFrame
-                df = pd.DataFrame(class_report).transpose()
-                report.add_text(df.to_string())
-            except Exception:
-                pass
+# =====================================================================
+# TRAIN REPORT
+# =====================================================================
+def generate_train_report(history, metrics, model_name, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
 
-    temp_files = []
+    plot_dir = os.path.join(output_dir, "plots")
+    os.makedirs(plot_dir, exist_ok=True)
 
-    # SHAP figure
-    if shap_fig is not None:
-        shap_path = "shap_plot.png"
-        _save_figure_to_png(shap_fig, shap_path)
-        temp_files.append(shap_path)
-        report.add_text("\nFeature Importance (SHAP):")
-        report.add_image(shap_path)
+    figs = []
 
-    # LIME figure
-    if lime_fig is not None:
-        lime_path = "lime_plot.png"
-        _save_figure_to_png(lime_fig, lime_path)
-        temp_files.append(lime_path)
-        report.add_text("\nLocal Explanation (LIME):")
-        report.add_image(lime_path)
+    # ------------------------------------------------------
+    # LOSS PLOT
+    # ------------------------------------------------------
+    if "loss" in history:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.plot(history["loss"], label="Train Loss")
+        if "val_loss" in history:
+            ax.plot(history["val_loss"], label="Val Loss")
+        ax.set_title("Loss Curve")
+        ax.legend()
+        figs.append(("loss.png", fig))
 
-    # Grad-CAM
-    if gradcam_fig is not None:
-        grad_path = "gradcam_plot.png"
-        _save_figure_to_png(gradcam_fig, grad_path)
-        temp_files.append(grad_path)
-        report.add_text("\nGrad-CAM Visualization:")
-        report.add_image(grad_path)
+    # ------------------------------------------------------
+    # ACCURACY PLOT
+    # ------------------------------------------------------
+    if "accuracy" in history:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.plot(history["accuracy"], label="Train Acc")
+        if "val_accuracy" in history:
+            ax.plot(history["val_accuracy"], label="Val Acc")
+        ax.set_title("Accuracy Curve")
+        ax.legend()
+        figs.append(("accuracy.png", fig))
+
+    # ------------------------------------------------------
+    # CONFUSION MATRIX
+    # ------------------------------------------------------
+    y_true = metrics.get("y_true")
+    y_pred = metrics.get("y_pred")
+    cm_path = None
+    cls_report_path = None
+
+    if y_true is not None and y_pred is not None:
+        cm = confusion_matrix(y_true, y_pred)
+
+        fig, ax = plt.subplots(figsize=(6, 4))
+        im = ax.imshow(cm, cmap="Blues")
+        ax.figure.colorbar(im, ax=ax)
+        ax.set_title("Confusion Matrix")
+        ax.set_xlabel("Predicted")
+        ax.set_ylabel("Actual")
+
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                ax.text(j, i, cm[i, j], ha="center", va="center")
+
+        cm_path = os.path.join(plot_dir, "confusion_matrix.png")
+        _save_fig_to_png(fig, cm_path)
+
+        # Classification Report
+        cls_report = classification_report(y_true, y_pred)
+        cls_report_path = os.path.join(output_dir, "classification_report.txt")
+
+        with open(cls_report_path, "w") as f:
+            f.write(cls_report)
+
+    # Save plots
+    image_paths = []
+    for fname, fig in figs:
+        path = os.path.join(plot_dir, fname)
+        _save_fig_to_png(fig, path)
+        image_paths.append(path)
+
+    # ------------------------------------------------------
+    # Save metrics JSON
+    # ------------------------------------------------------
+    with open(os.path.join(output_dir, "training_metrics.json"), "w") as f:
+        json.dump(metrics, f, indent=2)
+
+    # ------------------------------------------------------
+    # BUILD PDF
+    # ------------------------------------------------------
+    pdf_path = os.path.join(output_dir, f"{model_name}_train_report.pdf")
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=10)
+
+    # Title
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, "ExplainDL — Training Report", ln=True, align="C")
+    pdf.ln(4)
+
+    # Metrics Summary
+    pdf.set_font("Arial", "B", 13)
+    pdf.cell(0, 8, "Metrics Summary", ln=True)
+    pdf.set_font("Arial", "", 10)
+
+    for line in _dict_to_kv_lines(metrics):
+        pdf.multi_cell(0, 6, line)
+
+    # Add plots
+    for img in image_paths:
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 8, os.path.basename(img), ln=True)
+        pdf.image(img, x=15, w=180)
 
     # Confusion matrix
-    if metrics_dict:
-        cm_path = _add_confusion_matrix_image(metrics_dict, out_path="confusion_matrix.png")
-        if cm_path:
-            temp_files.append(cm_path)
-            report.add_text("\nConfusion Matrix:")
-            report.add_image(cm_path)
+    if cm_path:
+        pdf.add_page()
+        pdf.cell(0, 8, "Confusion Matrix", ln=True)
+        pdf.image(cm_path, x=15, w=180)
 
-    path = report.save()
+    # Classification Report
+    if cls_report_path:
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 6, "Classification Report", ln=True)
+        pdf.set_font("Arial", "", 10)
+        with open(cls_report_path) as f:
+            for line in f:
+                pdf.multi_cell(0, 5, line)
 
-    # cleanup
-    for f in temp_files:
-        try:
-            if os.path.exists(f):
-                os.remove(f)
-        except Exception:
-            pass
+    pdf.output(pdf_path)
+    return pdf_path
 
-    return path
+
+# =====================================================================
+# PREDICTION REPORT
+# =====================================================================
+def generate_predict_report(predictions, class_names, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+
+    preds = np.array(predictions)
+    unique, counts = np.unique(preds, return_counts=True)
+
+    plot_dir = os.path.join(output_dir, "plots")
+    os.makedirs(plot_dir, exist_ok=True)
+
+    # Histogram
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.bar(unique, counts)
+    ax.set_title("Prediction Histogram")
+    ax.set_xlabel("Class")
+    ax.set_ylabel("Count")
+    hist_path = os.path.join(plot_dir, "prediction_hist.png")
+    _save_fig_to_png(fig, hist_path)
+
+    # Pie chart
+    fig, ax = plt.subplots(figsize=(6, 4))
+    labels = [class_names[i] if class_names else str(i) for i in unique]
+    ax.pie(counts, labels=labels, autopct="%1.1f%%")
+    ax.set_title("Prediction Distribution")
+    pie_path = os.path.join(plot_dir, "prediction_pie.png")
+    _save_fig_to_png(fig, pie_path)
+
+    # ------------------------------------------------------
+    # NON-TECHNICAL SUMMARY (IMPROVED)
+    # ------------------------------------------------------
+    explanation_path = os.path.join(output_dir, "prediction_explanation.txt")
+
+    most_class = unique[np.argmax(counts)]
+    most_class_name = (
+        class_names[int(most_class)] if class_names and int(most_class) < len(class_names)
+        else str(most_class)
+    )
+
+    dominance_ratio = counts.max() / counts.sum()
+
+    with open(explanation_path, "w") as f:
+        f.write("ExplainDL — Simple Prediction Explanation\n")
+        f.write("=========================================\n\n")
+
+        f.write(f"Total Samples: {len(preds)}\n")
+        f.write(f"Most Frequent Predicted Class: {most_class_name} ({counts.max()} samples)\n")
+        f.write(f"Class Distribution: {dict(zip(unique.tolist(), counts.tolist()))}\n\n")
+
+        # Behaviour interpretation
+        f.write("Interpretation:\n")
+        if dominance_ratio > 0.85:
+            f.write(
+                "- The model predicts one class for almost all samples.\n"
+                "- This usually indicates **class imbalance** or insufficient feature variation.\n"
+                "- You may consider adding more training samples from other classes.\n\n"
+            )
+        elif dominance_ratio > 0.55:
+            f.write(
+                "- One class appears more likely than others, but not overwhelmingly.\n"
+                "- This suggests the model has learned stronger patterns for this class.\n"
+                "- However, it still identifies other classes reasonably.\n\n"
+            )
+        else:
+            f.write(
+                "- Predictions are fairly well distributed across classes.\n"
+                "- The model seems balanced and confident for multiple patterns.\n\n"
+            )
+
+        # Class meaning explanation
+        f.write("What this means for your data:\n")
+        f.write(
+            "- The system groups similar samples based on patterns learned during training.\n"
+            "- Higher counts for one class mean your input data resembles that category.\n"
+            "- If class names represent categories (e.g., 'spam', 'cat', 'positive'),\n"
+            "  they help users understand the meaning of predictions.\n\n"
+        )
+
+        # Next step suggestions
+        f.write("Suggestions for Non-Technical Users:\n")
+        f.write(
+            "- Use the prediction distribution chart to visually understand class frequency.\n"
+            "- If one class dominates unexpectedly, consider improving dataset balance.\n"
+            "- You may upload more diverse examples for better training.\n"
+            "- For business decisions, always examine multiple samples before concluding.\n"
+        )
+
+
+    # PDF Build
+    pdf_path = os.path.join(output_dir, "predict_report.pdf")
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=10)
+
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 8, "ExplainDL — Prediction Report", ln=True, align="C")
+    pdf.ln(6)
+
+    # Histogram
+    pdf.add_page()
+    pdf.cell(0, 8, "Prediction Histogram", ln=True)
+    pdf.image(hist_path, x=15, w=180)
+
+    # Pie chart
+    pdf.add_page()
+    pdf.cell(0, 8, "Prediction Pie Chart", ln=True)
+    pdf.image(pie_path, x=15, w=180)
+
+    # Explanation
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 6, "Explanation", ln=True)
+    pdf.set_font("Arial", "", 10)
+    with open(explanation_path) as f:
+        for line in f:
+            pdf.multi_cell(0, 6, line)
+
+    pdf.output(pdf_path)
+    return pdf_path

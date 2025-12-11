@@ -1,8 +1,14 @@
+# explainDL/explainability/gradcam_explainer.py
 """
-gradcam_explainer.py
---------------------
-Generates Grad-CAM heatmaps for CNN-based image models.
-Supports EfficientNet, MobileNet, and custom CNNs.
+Grad-CAM explainability for CNN-based image models.
+
+Function:
+    generate_gradcam(model, img_array, layer_name=None, colormap=plt.cm.jet) -> matplotlib.figure.Figure
+
+Notes:
+- img_array should be shaped (1, H, W, 3) and scaled to [0,1] (or original pixel range).
+- The function selects the last Conv2D layer by default if layer_name is None.
+- Returns a matplotlib Figure containing the overlay image.
 """
 
 import numpy as np
@@ -10,79 +16,113 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow.keras.models import Model
 
+def _find_last_conv_layer(model):
+    """
+    Return name of last Conv2D layer in the model or None if none exists.
+    """
+    for layer in reversed(model.layers):
+        # Use keras.layers.Conv2D class check
+        if isinstance(layer, tf.keras.layers.Conv2D):
+            return layer.name
+    return None
+
+
 def generate_gradcam(model, img_array, layer_name=None, colormap=plt.cm.jet):
     """
-    Generates a Grad-CAM heatmap for a given model and image.
+    Generate Grad-CAM overlay for a single image.
 
     Parameters
     ----------
     model : keras.Model
-        Trained CNN model.
+        A Keras model with convolutional layers.
     img_array : np.ndarray
-        Input image array of shape (1, H, W, 3) normalized between [0, 1].
-    layer_name : str or None
-        Specific layer to visualize. If None, automatically picks last Conv2D layer.
+        Input image as a numpy array with shape (1, H, W, 3).
+    layer_name : str|None
+        Name of conv layer to use. If None, pick last conv layer.
     colormap : matplotlib colormap
-        Colormap used for heatmap overlay.
 
     Returns
     -------
     fig : matplotlib.figure.Figure
-        Matplotlib figure with Grad-CAM visualization.
     """
 
-    # 1️⃣ Find last convolutional layer if not provided
-    if layer_name is None:
-        layer_name = None
-        for layer in reversed(model.layers):
-            if isinstance(layer, tf.keras.layers.Conv2D):
-                layer_name = layer.name
-                break
+    # Validate input
+    if not hasattr(model, "layers"):
+        raise ValueError("Provided model is not a Keras model.")
+
+    if img_array.ndim != 4 or img_array.shape[0] != 1:
+        raise ValueError("img_array must be shape (1, H, W, 3).")
 
     if layer_name is None:
-        raise ValueError("No convolutional layer found in model for Grad-CAM.")
+        layer_name = _find_last_conv_layer(model)
 
+    if layer_name is None:
+        raise ValueError("No Conv2D layer found in model for Grad-CAM. Provide a conv layer name.")
+
+    # Build a model maps input -> (conv_outputs, model_output)
     conv_layer = model.get_layer(layer_name)
-
-    # 2️⃣ Build gradient model: inputs -> (conv outputs, predictions)
     grad_model = Model(inputs=model.inputs, outputs=[conv_layer.output, model.output])
 
-    # 3️⃣ Compute gradients of top predicted class wrt conv outputs
+    # Compute gradient of the predicted class w.r.t. conv output
     with tf.GradientTape() as tape:
         conv_outputs, predictions = grad_model(img_array)
+        # predicted class index
         pred_index = tf.argmax(predictions[0])
         class_channel = predictions[:, pred_index]
 
+    # Gradients of class_channel wrt conv_outputs
     grads = tape.gradient(class_channel, conv_outputs)
+    if grads is None:
+        raise RuntimeError("GradientTape returned None. Check model or input.")
+
+    # Global average pooling of gradients
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
 
-    conv_outputs = conv_outputs[0].numpy()
-    pooled_grads = pooled_grads.numpy()
+    conv_output_np = conv_outputs[0].numpy()
+    pooled_grads_np = pooled_grads.numpy()
 
-    # 4️⃣ Weighted average of conv maps
-    for i in range(pooled_grads.shape[-1]):
-        conv_outputs[:, :, i] *= pooled_grads[i]
+    # Weight conv feature maps by gradients
+    for i in range(pooled_grads_np.shape[-1]):
+        conv_output_np[:, :, i] *= pooled_grads_np[i]
 
-    heatmap = np.mean(conv_outputs, axis=-1)
+    # Create heatmap
+    heatmap = np.mean(conv_output_np, axis=-1)
     heatmap = np.maximum(heatmap, 0)
-    heatmap /= np.max(heatmap) + 1e-8  # normalize
+    max_val = np.max(heatmap) if np.max(heatmap) != 0 else 1e-8
+    heatmap /= max_val
 
-    # 5️⃣ Resize heatmap to match image
-    import cv2
-    heatmap = cv2.resize(heatmap, (img_array.shape[2], img_array.shape[1]))
-    heatmap = np.uint8(255 * heatmap)
-    heatmap = colormap(heatmap)
-    heatmap = np.delete(heatmap, 3, axis=2)  # remove alpha
+    # Resize heatmap to image size
+    try:
+        import cv2
+    except Exception:
+        # Use numpy-based simple resize fallback (nearest neighbor)
+        target_h, target_w = img_array.shape[1], img_array.shape[2]
+        heatmap_resized = np.array(
+            np.kron(heatmap, np.ones((int(np.ceil(target_h / heatmap.shape[0])), int(np.ceil(target_w / heatmap.shape[1])))))
+        )
+        heatmap_resized = heatmap_resized[:target_h, :target_w]
+    else:
+        h, w = img_array.shape[1], img_array.shape[2]
+        heatmap_resized = cv2.resize(heatmap, (w, h))
 
-    # 6️⃣ Overlay on original image
+    # Convert heatmap to RGB using colormap
+    heatmap_uint8 = np.uint8(255 * heatmap_resized)
+    heatmap_color = colormap(heatmap_uint8)
+    heatmap_color = heatmap_color[..., :3]  # drop alpha
+
+    # Prepare image
     img = img_array[0]
-    img = (img - img.min()) / (img.max() - img.min())
-    overlay = 0.6 * heatmap[:, :, :3] + 0.4 * img
+    # If image outside [0,1], normalize for display
+    img_disp = (img - img.min()) / (img.max() - img.min() + 1e-8)
 
-    # 7️⃣ Plot result
-    fig, ax = plt.subplots(figsize=(4, 4))
+    # Overlay
+    overlay = 0.5 * heatmap_color + 0.5 * img_disp
+    overlay = np.clip(overlay, 0, 1)
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(5, 5))
     ax.imshow(overlay)
-    ax.axis('off')
+    ax.axis("off")
     ax.set_title(f"Grad-CAM ({layer_name})")
     plt.tight_layout()
 

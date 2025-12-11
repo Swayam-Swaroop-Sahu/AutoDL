@@ -1,34 +1,48 @@
-# Core
+# ------------------------
+# CORE
+# ------------------------
 streamlit
 pandas
 numpy
 scikit-learn
+joblib
+tqdm
+openpyxl
 
-# Deep Learning
+# ------------------------
+# DEEP LEARNING
+# ------------------------
 tensorflow
-torch
-torchvision
+keras
 keras-tuner
-optuna
 
-# NLP & Transformers
+# ------------------------
+# NLP
+# ------------------------
 nltk
 transformers
 
-# Explainability
+# ------------------------
+# EXPLAINABILITY
+# ------------------------
 shap
 lime
-grad-cam
+opencv-python
 
-# Visualization
+# ------------------------
+# VISUALIZATION
+# ------------------------
 matplotlib
 seaborn
 plotly
 Pillow
 
-# Utilities
-joblib
-tqdm
-openpyxl
-
+# ------------------------
+# PDF REPORTS
+# ------------------------
 fpdf
+
+# ------------------------
+# UTILITIES
+# ------------------------
+psutil

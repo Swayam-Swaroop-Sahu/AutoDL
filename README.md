@@ -1,199 +1,294 @@
-# ExplainDL: Automated Deep Learning Analysis Tool
+**ExplainDL: Automated Deep Learning Analysis Tool**
+=======================================================
 
-**Author:** Swayam Swaroop Sahu  
-**Institution:** VIT Vellore  
-**Department:** Computer Science and Engineering  
-**Project Type:** Academic Research Project (MVP Stage)  
-**Semester:** 5th Semester, 2025 
+**Author:** Swayam Swaroop Sahu\
+**Institution:** VIT Vellore\
+**Department:** Computer Science and Engineering\
+**Project Type:** Academic Research Project (MVP Stage)\
+**Semester:** 5th Semester, 2025
 
----
+* * * * *
 
-### **OVERVIEW**
+**OVERVIEW**
+---------------
 
-ExplainDL is an **Automated Deep Learning Analysis Tool** designed to make deep learning accessible to non-technical users.
-It automates the complete AI workflow — from **dataset upload to preprocessing, model training, evaluation, and explainability** — without requiring manual coding.
+**ExplainDL** is an **Automated Deep Learning Analysis Tool** built to make AI accessible even to non-technical users.\
+It automates the full ML pipeline:
 
-Users can upload datasets (tabular, image, or text), and ExplainDL automatically:
+-   **Dataset Upload → Preprocessing → Model Selection → Training → Evaluation → Explainability → Report Generation**
 
-* Detects the dataset type
-* Cleans and preprocesses data
-* Selects and trains an appropriate deep learning model
-* Evaluates performance metrics (Accuracy, Precision, Recall, F1-score)
-* Generates explainability visualizations using **SHAP**, **LIME**, and **Grad-CAM**
-* Produces a detailed **analysis report (PDF)**
+ExplainDL supports **Tabular**, **Image**, and **Text datasets**, and intelligently:
 
-ExplainDL combines **AutoML (Automation)** and **XAI (Explainable AI)** into one modular system.
+-   Detects dataset type
 
----
+-   Preprocesses data
 
-### **KEY FEATURES**
+-   Selects the optimal model dynamically (MLP / CNN / LSTM / BiLSTM / Text-CNN)
 
-* Automatic dataset type detection (Tabular / Image / Text)
-* End-to-end preprocessing for all supported formats
-* Dynamic model selection:
-  • MLP for tabular data
-  • CNN for image data
-  • LSTM for text data
-* Automated training and evaluation pipeline
-* Integrated explainability layer (SHAP, LIME, Grad-CAM)
-* PDF report generation for results and analysis
-* Optional hyperparameter tuning using **Keras-Tuner**
-* Streamlit-based front-end for a user-friendly interface
+-   Trains and evaluates models
 
----
+-   Computes full metrics (Accuracy, Precision, Recall, F1-score)
 
-### **PROJECT STRUCTURE**
+-   Generates **Explainability outputs** (Confusion Matrix, SHAP, LIME, Grad-CAM, prediction distribution)
 
-```
-ExplainDL/
+-   Produces a **detailed PDF report**
+
+-   Supports **Hyperparameter Tuning** with Keras-Tuner
+
+This project merges **AutoML + Explainable AI (XAI)** into one modular, extendable framework.
+
+* * * * *
+
+**KEY FEATURES**
+-------------------
+
+### **Dataset Intelligence**
+
+-   Automatic dataset type detection
+
+-   Tabular (.csv, .xlsx), Image (.zip), Text (.txt with `label<TAB>text`)
+
+### **Preprocessing Pipelines**
+
+-   Scaling, encoding, tokenization, augmentation depending on data type
+
+### **Automated Model Selection**
+
+| Data Type | Model Options |
+| --- | --- |
+| **Tabular** | MLP-Small, Medium, Large |
+| **Image** | Small-CNN, MobileNetV2, EfficientNetB0 |
+| **Text** | LSTM, BiLSTM, Text-CNN |
+
+ExplainDL performs a forward-pass variance check to pick the best model.
+
+### **Performance & Explainability**
+
+-   Accuracy, Precision, Recall, F1-score
+
+-   Confusion Matrix
+
+-   Classification Report
+
+-   Prediction Distribution (Histogram + Pie Chart)
+
+-   Non-technical explanation text
+
+-   Auto-generated PDF report
+
+### **Hyperparameter Tuning (Optional)**
+
+Powered by **Keras-Tuner RandomSearch**
+
+-   Tunable layers, units, dropout, learning rate, embedding size
+
+-   Works for tabular, image, and text pipelines
+
+### **User-Friendly UI (Streamlit)**
+
+-   Upload datasets
+
+-   Select tuning options
+
+-   View metrics, graphs, explanations
+
+-   Download reports and predictions
+
+* * * * *
+
+**PROJECT STRUCTURE**
+------------------------
+
+`ExplainDL/
 │
-├── app.py                     → Streamlit front-end app
+├── app.py                        → Streamlit front-end UI
 │
 ├── explainDL/
-│   ├── data_input/            → Dataset loading and type detection
-│   ├── preprocessing/         → Cleaning and preprocessing pipelines
-│   ├── model_selection/       → Auto model selection (MLP/CNN/LSTM)
-│   ├── training/              → Model training and evaluation logic
-│   ├── explainability/        → Explainability modules (SHAP, LIME, Grad-CAM)
-│   ├── utils/                 → Helper functions and utilities
-│   └── pipeline.py            → Main orchestrator for the full workflow
+│   ├── data/                     → Data loading, extraction, type detection
+│   ├── preprocessing/            → Tabular, image, text preprocessors
+│   ├── model_selection/          → Auto model selector + hyperparameter tuner
+│   ├── training/                 → Model training + metrics
+│   ├── explainability/           → Reports, SHAP/LIME/Grad-CAM utilities
+│   ├── core/                     → Pipeline orchestrators for training/prediction
+│   ├── registry.py               → Model registry handler
+│   └── utils/                    → Helper utilities
 │
-├── requirements.txt           → Dependency list
-└── README.txt / README.md     → Project documentation
-```
+├── requirements.txt              → Dependency list
+└── README.md                     → Project documentation`
 
----
+* * * * *
 
-### **INSTALLATION AND SETUP**
+⚙️ **INSTALLATION & SETUP**
+---------------------------
 
-**Step 1:** Clone the Repository
+### **1 Clone the Repository**
 
-```
-git clone https://github.com/<your-username>/ExplainDL.git
-cd ExplainDL
-```
+`git clone https://github.com/<your-username>/ExplainDL.git
+cd ExplainDL`
 
-**Step 2:** Create and Activate Virtual Environment
+### **2 Create & Activate Environment**
 
-```
-python -m venv venv
-venv\Scripts\activate        (Windows)
-source venv/bin/activate     (Mac/Linux)
-```
+`python -m venv venv
+venv\Scripts\activate        # Windows
+source venv/bin/activate     # Mac/Linux`
 
-**Step 3:** Install Dependencies
+### **3 Install Dependencies**
 
-```
-pip install -r requirements.txt
-```
+`pip install -r requirements.txt`
 
-**Step 4:** Run the Application
+### **4 Run ExplainDL**
 
-```
-streamlit run app.py
-```
+`streamlit run app.py`
 
-Access the app locally through:
-**[http://localhost:8501](http://localhost:8501)**
+Access locally at:\
+**<http://localhost:8501>**
 
----
+* * * * *
 
-### **SUPPORTED DATA FORMATS**
+**SUPPORTED DATA FORMATS**
+-----------------------------
 
-| **Data Type** | **Supported Format**          | **Example**                   |
-| ------------- | ----------------------------- | ----------------------------- |
-| Tabular       | .csv, .xlsx                   | Medical or financial records  |
-| Image         | .zip (with folders per class) | Cats vs Dogs, Human vs Object |
-| Text          | .txt (label,text per line)    | Sentiment analysis data       |
+| Type | Format | Example Use-Case |
+| --- | --- | --- |
+| Tabular | `.csv`, `.xlsx` | Finance, medical records |
+| Image | `.zip` (folders = classes) | Cats vs Dogs, defect detection |
+| Text | `.txt` (`label <TAB> text`) | Sentiment analysis |
 
----
+* * * * *
 
-### **OUTPUT AND RESULTS**
+📤 **OUTPUT & RESULTS**
+-----------------------
 
-After execution, ExplainDL generates the following outputs:
+### **1\. Performance Metrics**
 
-1. **Performance Metrics**
+-   Accuracy
 
-   * Accuracy, Precision, Recall, F1-score
-   * Confusion Matrix
-   * Per-class classification report
+-   Precision
 
-2. **Explainability Visuals**
+-   Recall
 
-   * SHAP: Feature importance for tabular data
-   * LIME: Local interpretability for individual samples
-   * Grad-CAM: Visual heatmaps for image classification
+-   F1-score
 
-3. **PDF Report**
+-   Confusion Matrix
 
-   * Includes all metrics, visuals, and interpretation summary
+-   Per-class breakdown
 
----
+### **2\. Deep Explainability**
 
-### **EXAMPLE USAGE**
+-   **Confusion Matrix heatmap**
 
-1. Launch the Streamlit app.
-2. Upload dataset (.csv, .zip, or .txt).
-3. Configure sidebar options:
+-   **Prediction distribution** (histogram + pie chart)
 
-   * Auto Mode (default ON)
-   * Show Explainability Report (ON/OFF)
-   * Enable Hyperparameter Tuning (Optional)
-4. Click **Start Analysis**.
-5. Wait for the automated pipeline to complete.
-6. View model performance and download the report.
+-   **SHAP / LIME / Grad-CAM hooks (architecture-ready)**
 
----
+-   **Human-readable explanation text**
 
-### **TECHNOLOGIES USED**
+### **3\. PDF Report (Auto-Generated)**
 
-**Programming Language:** Python
-**Frontend Interface:** Streamlit
-**Deep Learning Framework:** TensorFlow, Keras
-**Explainability Libraries:** SHAP, LIME, Grad-CAM
-**Data Handling:** Pandas, NumPy, Scikit-learn
-**Hyperparameter Tuning:** Keras-Tuner
-**Visualization:** Matplotlib, Seaborn
-**Reporting:** FPDF
+Contains:
 
----
+-   Summary of metrics
 
-### **CURRENT LIMITATIONS**
+-   All graphs
 
-* Accuracy may vary for small datasets.
-* Grad-CAM can fail when dataset contains only one class.
-* Trained model export feature not yet implemented.
-* Limited hyperparameter search scope (basic tuner setup).
+-   Confusion matrix
 
----
+-   Classification report
 
-### **FUTURE ENHANCEMENTS**
+-   Simple non-technical explanation
 
-* Cloud deployment for larger datasets.
-* Model export functionality (.h5 / .onnx).
-* Multi-label and regression problem support.
-* Integration of advanced models (Transformers, EfficientNetV2).
-* Improved explainability dashboard (interactive visualizations).
-* Comparative benchmarking with public datasets.
-* Patent exploration for combined AutoML + XAI design.
+* * * * *
 
----
+**EXAMPLE USAGE FLOW**
+-------------------------
 
-### **REFERENCES**
+1.  Run the Streamlit app
 
-The system builds upon principles and libraries from:
+2.  Upload labelled dataset
 
-* AutoML frameworks: AutoKeras, Auto-Sklearn, H2O.ai, Google AutoML
-* Explainability frameworks: SHAP, LIME, Grad-CAM
-* TensorFlow and Keras documentation
-* Research papers on Explainable AI (XAI) and Automated Machine Learning
+3.  Optionally enable hyperparameter tuning
 
----
+4.  Train the model
 
-### **LICENSE**
+5.  Download:
 
-This project is developed for **educational and research purposes only**.
-© 2025 Swayam Swaroop Sahu. All Rights Reserved.
+    -   Predictions CSV
 
----
+    -   Training Report PDF
 
+6.  Upload unlabelled dataset and run predictions
+
+7.  View explainability graphs and text summary
+
+* * * * *
+
+**TECH STACK**
+-----------------
+
+| Component | Technology |
+| --- | --- |
+| Language | Python |
+| Deep Learning | TensorFlow, Keras |
+| Explainability | SHAP, LIME, Grad-CAM |
+| Tuning | Keras-Tuner |
+| UI | Streamlit |
+| Data | Pandas, NumPy, Scikit-learn |
+| Visualization | Matplotlib, Seaborn |
+| Reporting | FPDF |
+
+* * * * *
+
+**CURRENT LIMITATIONS**
+--------------------------
+
+-   Accuracy may vary for small datasets
+
+-   Grad-CAM may fail with single-class datasets
+
+-   Advanced explainability dashboards not yet integrated
+
+-   Hyperparameter search is intentionally shallow for speed
+
+-   No ONNX export yet
+
+* * * * *
+
+**FUTURE ENHANCEMENTS**
+--------------------------
+
+-   Cloud-based training & GPU compute
+
+-   Advanced model zoo (Transformers, EfficientNetV2, ViT)
+
+-   Interactive SHAP dashboards
+
+-   Multi-label + regression support
+
+-   ONNX export
+
+-   AutoML search space expansion
+
+-   Patent exploration for ExplainDL architecture
+
+* * * * *
+
+**REFERENCES**
+-----------------
+
+ExplainDL builds upon ideas from:
+
+-   AutoML: AutoKeras, Auto-Sklearn, H2O.ai
+
+-   XAI Tools: SHAP, LIME, Grad-CAM
+
+-   TensorFlow / Keras documentation
+
+-   Research papers on XAI & Responsible AI
+
+* * * * *
+
+**LICENSE**
+--------------
+
+This project is created for **academic and research purposes only**.\
+© 2025 **Swayam Swaroop Sahu** --- All Rights Reserved.

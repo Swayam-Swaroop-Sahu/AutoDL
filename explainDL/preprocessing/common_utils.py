@@ -1,47 +1,43 @@
-"""
-common_utils.py
-----------------
-Utility functions for preprocessing modules.
-"""
+# explainDL/preprocessing/common_utils.py
 
 import numpy as np
 import pandas as pd
 
+
 def handle_missing_values(df: pd.DataFrame, strategy: str = "auto") -> pd.DataFrame:
     """
-    Handles missing values automatically based on data type.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Input DataFrame
-    strategy : str, optional
-        Strategy for missing value handling ('auto', 'mean', 'median', 'mode', 'drop')
-
-    Returns
-    -------
-    pandas.DataFrame
+    Handles missing values using:
+    - mean / median for numeric
+    - mode for categorical
+    - auto mode picks mean for numbers & mode for object types
     """
-    df_copy = df.copy()
 
-    if strategy == "drop":
-        df_copy.dropna(inplace=True)
-    elif strategy in ["mean", "median", "mode"]:
-        for col in df_copy.columns:
-            if df_copy[col].dtype in [np.float64, np.int64]:
-                if strategy == "mean":
-                    df_copy[col].fillna(df_copy[col].mean(), inplace=True)
-                elif strategy == "median":
-                    df_copy[col].fillna(df_copy[col].median(), inplace=True)
-                else:
-                    df_copy[col].fillna(df_copy[col].mode()[0], inplace=True)
-            else:
-                df_copy[col].fillna(df_copy[col].mode()[0], inplace=True)
-    elif strategy == "auto":
-        for col in df_copy.columns:
-            if df_copy[col].dtype in [np.float64, np.int64]:
-                df_copy[col].fillna(df_copy[col].mean(), inplace=True)
-            else:
-                df_copy[col].fillna(df_copy[col].mode()[0], inplace=True)
+    df = df.copy()
 
-    return df_copy
+    for col in df.columns:
+        if df[col].dtype in [np.float64, np.int64, float, int]:
+            if strategy in ["auto", "mean"]:
+                df[col].fillna(df[col].mean(), inplace=True)
+            elif strategy == "median":
+                df[col].fillna(df[col].median(), inplace=True)
+            elif strategy == "mode":
+                df[col].fillna(df[col].mode()[0], inplace=True)
+        else:
+            df[col].fillna(df[col].mode()[0], inplace=True)
+
+    return df
+
+
+def detect_target_column(df: pd.DataFrame) -> str:
+    """
+    Automatically detects a target column.
+    Prioritizes: ["target", "label", "class", "y"]
+    Else returns the last column.
+    """
+
+    preferred = ["target", "label", "class", "y"]
+    for col in preferred:
+        if col in df.columns:
+            return col
+
+    return df.columns[-1]

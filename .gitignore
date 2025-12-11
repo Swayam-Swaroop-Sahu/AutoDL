@@ -1,8 +1,55 @@
-# Large media or dataset files
-*.mp4
-*.zip
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+*.pickle
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Streamlit artifacts
+.streamlit/
+
+# Model registry
+model_registry/
+ExplainDL_Registry/
+
+# Reports
+reports/*.pdf
+
+# Temp files
+tmp/
+temp/
+*.tmp
+*.log
+*.out
+
+# Data files
 *.csv
 *.xlsx
-*.pptx
-*.docx
-*.pdf
+*.xls
+*.txt
+*.zip
+*.json
+
+# Images
+*.png
+*.jpg
+*.jpeg
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Build
+dist/
+build/
