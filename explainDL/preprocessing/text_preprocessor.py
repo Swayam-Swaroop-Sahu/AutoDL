@@ -39,7 +39,29 @@ class TextPreprocessor:
     # TRAIN MODE
     # ------------------------------------------------------------------
     def fit_transform(self, texts, labels):
+        # Validate inputs
+        if not texts or len(texts) == 0:
+            raise ValueError("No texts provided for preprocessing. Please provide at least one text sample.")
+        
+        if not labels or len(labels) == 0:
+            raise ValueError("No labels provided for preprocessing. Please provide labels for each text sample.")
+        
+        if len(texts) != len(labels):
+            raise ValueError(f"Mismatch between texts ({len(texts)}) and labels ({len(labels)}). They must have the same length.")
+        
+        if len(texts) < 2:
+            raise ValueError(f"Too few text samples ({len(texts)}). Minimum 2 samples required for training.")
+        
+        # Check for sufficient unique labels
+        unique_labels = set(labels)
+        if len(unique_labels) < 2:
+            raise ValueError(f"Only {len(unique_labels)} unique label(s) found. Minimum 2 different labels required for classification.")
+
         cleaned = [self.clean(t) for t in texts]
+        
+        # Check that cleaning didn't remove all text
+        if all(not t.strip() for t in cleaned):
+            raise ValueError("All texts became empty after cleaning. Please check your text data format.")
 
         # Tokenizer
         self.tokenizer = Tokenizer(num_words=self.max_words, oov_token="<UNK>")

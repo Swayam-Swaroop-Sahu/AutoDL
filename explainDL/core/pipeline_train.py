@@ -189,7 +189,20 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
     if not os.path.exists(dataset_path):
         raise FileNotFoundError(f"Dataset not found: {dataset_path}")
 
-    dataset_type = detect_dataset_type(dataset_path)
+    # Detect dataset type with error handling
+    try:
+        dataset_type = detect_dataset_type(dataset_path)
+    except Exception as e:
+        raise ValueError(f"Could not detect dataset type: {str(e)}. Please ensure the file is in a supported format (.csv, .xlsx, .txt, or .zip).")
+
+    if dataset_type == "unknown":
+        raise ValueError(
+            f"Could not determine dataset type from file: {dataset_path}. "
+            "Supported formats:\n"
+            "- Tabular: .csv, .xlsx\n"
+            "- Image: .zip (containing image files in class folders)\n"
+            "- Text: .txt (format: label<TAB>text or label,text per line)"
+        )
 
     # Create model directory
     model_id = str(uuid.uuid4())[:8]
@@ -209,10 +222,22 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
     # TABULAR DATA
     # =====================================================================
     if dataset_type == "tabular":
+        try:
+            df = load_tabular_data(dataset_path)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(str(e))
+        except ValueError as e:
+            raise ValueError(f"Tabular data loading error: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Unexpected error loading tabular data: {str(e)}. Please check the file format and content.")
 
-        df = load_tabular_data(dataset_path)
-        preprocessor = TabularPreprocessor()
-        X, y = preprocessor.fit_transform(df)
+        try:
+            preprocessor = TabularPreprocessor()
+            X, y = preprocessor.fit_transform(df)
+        except ValueError as e:
+            raise ValueError(f"Tabular preprocessing error: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Unexpected error during preprocessing: {str(e)}")
 
         num_features = X.shape[1]
         num_classes = len(set(y))
@@ -271,9 +296,15 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
     # IMAGE DATA
     # =====================================================================
     elif dataset_type == "image":
-
-        extract_dir = os.path.join(model_dir, "images_extracted")
-        extracted = extract_image_dataset(dataset_path, extract_dir)
+        try:
+            extract_dir = os.path.join(model_dir, "images_extracted")
+            extracted = extract_image_dataset(dataset_path, extract_dir)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(str(e))
+        except ValueError as e:
+            raise ValueError(f"Image dataset error: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Unexpected error loading image dataset: {str(e)}. Please ensure the ZIP file contains valid images in class folders.")
 
         preprocessor = ImagePreprocessor()
         train_gen, val_gen = preprocessor.preprocess_for_train(extracted)
@@ -330,12 +361,36 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
     # TEXT DATA
     # =====================================================================
     elif dataset_type == "text":
+        try:
+            lines = load_text_file(dataset_path)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(str(e))
+        except ValueError as e:
+            raise ValueError(f"Text file loading error: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Unexpected error loading text file: {str(e)}")
 
-        lines = load_text_file(dataset_path)
-        texts, labels = parse_labelled_text(lines)
+        try:
+            texts, labels = parse_labelled_text(lines)
+        except ValueError as e:
+            raise ValueError(f"Text parsing error: {str(e)}. Expected format: 'label<TAB>text' or 'label,text' per line.")
+        except Exception as e:
+            raise ValueError(f"Unexpected error parsing text data: {str(e)}")
 
-        preprocessor = TextPreprocessor()
-        X, y = preprocessor.fit_transform(texts, labels)
+        if texts is None or labels is None:
+            raise ValueError(
+                "Text file does not appear to be labelled. "
+                "For training, please use format: 'label<TAB>text' or 'label,text' per line. "
+                "For prediction, use unlabelled text (one text per line)."
+            )
+
+        try:
+            preprocessor = TextPreprocessor()
+            X, y = preprocessor.fit_transform(texts, labels)
+        except ValueError as e:
+            raise ValueError(f"Text preprocessing error: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Unexpected error during text preprocessing: {str(e)}")
 
         vocab_size = preprocessor.max_words
         max_len = preprocessor.max_len
@@ -423,11 +478,23 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         json.dump(make_json_safe(metadata), f, indent=2)
 
     # ----------------------------------------------------------------------
-    # GENERATE TRAIN REPORT (loss, acc, confusion, explainability)
+    # GENERATE ENHANCED TRAIN REPORT (loss, acc, confusion, explainability, model selection)
     # ----------------------------------------------------------------------
     try:
-        report_path = generate_train_report(history, metrics, model_name, model_dir)
-    except Exception:
+        report_path = generate_train_report(
+            history, 
+            metrics, 
+            model_name, 
+            model_dir,
+            model_comparison=comparison_data,
+            selection_explanation_path=selection_explanation_path,
+            training_explanation_path=training_explanation_path
+        )
+    except Exception as e:
+        # Log error but don't fail the pipeline
+        import traceback
+        print(f"Warning: Could not generate enhanced PDF report: {e}")
+        traceback.print_exc()
         report_path = None
 
     # RETURN

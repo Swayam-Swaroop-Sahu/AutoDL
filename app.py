@@ -305,9 +305,17 @@ if train_clicked:
                 with open(train_result["report_path"], "rb") as f:
                     st.download_button("Download Training Report (PDF)", data=f, file_name=f"ExplainDL_train_{train_result['model_id']}.pdf")
 
-        except Exception:
-            st.error("Error during training — see trace below.")
-            st.code(traceback.format_exc())
+        except FileNotFoundError as e:
+            st.error(f"**File Not Found Error:** {str(e)}")
+            st.info("💡 **Tip:** Please ensure the file path is correct and the file exists.")
+        except ValueError as e:
+            st.error(f"**Data Validation Error:** {str(e)}")
+            st.info("💡 **Tip:** Please check:\n- File format matches the expected type (.csv, .xlsx, .txt, or .zip)\n- File contains valid data with sufficient samples\n- For text files, use format: 'label<TAB>text' or 'label,text' per line")
+        except Exception as e:
+            st.error("**Error during training** — see details below.")
+            st.error(str(e))
+            with st.expander("Technical Details"):
+                st.code(traceback.format_exc())
 
 # -----------------------------------------------------------
 # PREDICTION SECTION
@@ -379,9 +387,17 @@ if st.session_state.model_dir:
                         st.download_button("Download Prediction Report (PDF)", data=f,
                                            file_name=f"ExplainDL_predict_{st.session_state.model_id}.pdf")
 
-            except Exception:
-                st.error("Error during prediction — see trace below.")
-                st.code(traceback.format_exc())
+            except FileNotFoundError as e:
+                st.error(f"**File Not Found Error:** {str(e)}")
+                st.info("💡 **Tip:** Please ensure both the model and prediction dataset files exist.")
+            except ValueError as e:
+                st.error(f"**Prediction Error:** {str(e)}")
+                st.info("💡 **Tip:** Please check:\n- Prediction dataset matches the training dataset type\n- File format is correct\n- For tabular data, ensure columns match training data")
+            except Exception as e:
+                st.error("**Error during prediction** — see details below.")
+                st.error(str(e))
+                with st.expander("Technical Details"):
+                    st.code(traceback.format_exc())
 
 else:
     st.info("Train a model first to unlock prediction mode.")

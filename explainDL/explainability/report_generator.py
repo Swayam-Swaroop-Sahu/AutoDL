@@ -46,7 +46,15 @@ def _dict_to_kv_lines(d: dict, indent: int = 0):
 # =====================================================================
 # TRAIN REPORT
 # =====================================================================
-def generate_train_report(history, metrics, model_name, output_dir):
+def generate_train_report(history, metrics, model_name, output_dir, model_comparison=None, 
+                          selection_explanation_path=None, training_explanation_path=None):
+    """
+    Enhanced training report generator that includes:
+    - Model selection details and comparison
+    - Selection explanation
+    - Training explanation
+    - All metrics and visualizations
+    """
     os.makedirs(output_dir, exist_ok=True)
 
     plot_dir = os.path.join(output_dir, "plots")
@@ -124,36 +132,110 @@ def generate_train_report(history, metrics, model_name, output_dir):
         json.dump(metrics, f, indent=2)
 
     # ------------------------------------------------------
-    # BUILD PDF
+    # BUILD ENHANCED PDF
     # ------------------------------------------------------
     pdf_path = os.path.join(output_dir, f"{model_name}_train_report.pdf")
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=10)
 
-    # Title
+    # Title Page
     pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, "ExplainDL — Training Report", ln=True, align="C")
-    pdf.ln(4)
+    pdf.set_font("Arial", "B", 18)
+    pdf.cell(0, 15, "ExplainDL — Comprehensive Training Report", ln=True, align="C")
+    pdf.ln(8)
+    pdf.set_font("Arial", "", 12)
+    pdf.cell(0, 8, f"Model: {model_name}", ln=True, align="C")
+    pdf.ln(10)
+
+    # Model Selection Section
+    if model_comparison:
+        pdf.set_font("Arial", "B", 14)
+        pdf.cell(0, 10, "1. Model Selection", ln=True)
+        pdf.set_font("Arial", "", 10)
+        
+        selected = model_comparison.get("selected", "Unknown")
+        reason = model_comparison.get("reason", "No reason provided")
+        
+        pdf.set_font("Arial", "B", 11)
+        pdf.cell(0, 8, f"Selected Model: {selected}", ln=True)
+        pdf.set_font("Arial", "", 10)
+        pdf.multi_cell(0, 6, f"Reason: {reason}")
+        pdf.ln(5)
+        
+        # Model Comparison Table
+        if model_comparison.get("models"):
+            pdf.set_font("Arial", "B", 11)
+            pdf.cell(0, 8, "Model Comparison:", ln=True)
+            pdf.set_font("Arial", "", 9)
+            
+            for model_info in model_comparison["models"]:
+                pdf.ln(3)
+                pdf.set_font("Arial", "B", 10)
+                pdf.cell(0, 6, f"• {model_info['name']} (Score: {model_info['score']:.4f})", ln=True)
+                pdf.set_font("Arial", "", 9)
+                pdf.multi_cell(0, 5, f"  {model_info['description']}")
+                pdf.multi_cell(0, 5, f"  Parameters: {model_info['params']}")
+                pdf.multi_cell(0, 5, f"  Pros: {model_info['pros']}")
+                pdf.multi_cell(0, 5, f"  Cons: {model_info['cons']}")
+                pdf.ln(2)
+        
+        pdf.ln(5)
+
+    # Selection Explanation
+    if selection_explanation_path and os.path.exists(selection_explanation_path):
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 14)
+        pdf.cell(0, 10, "2. Model Selection Explanation", ln=True)
+        pdf.set_font("Arial", "", 10)
+        pdf.ln(3)
+        try:
+            with open(selection_explanation_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    pdf.multi_cell(0, 6, line.strip())
+        except Exception:
+            pass
+        pdf.ln(5)
+
+    # Training Explanation
+    if training_explanation_path and os.path.exists(training_explanation_path):
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 14)
+        pdf.cell(0, 10, "3. Training Process Explanation", ln=True)
+        pdf.set_font("Arial", "", 10)
+        pdf.ln(3)
+        try:
+            with open(training_explanation_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    pdf.multi_cell(0, 6, line.strip())
+        except Exception:
+            pass
+        pdf.ln(5)
 
     # Metrics Summary
-    pdf.set_font("Arial", "B", 13)
-    pdf.cell(0, 8, "Metrics Summary", ln=True)
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 10, "4. Performance Metrics", ln=True)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, "Summary", ln=True)
     pdf.set_font("Arial", "", 10)
 
-    for line in _dict_to_kv_lines(metrics):
+    # Filter out large arrays for PDF
+    metrics_for_pdf = {k: v for k, v in metrics.items() if k not in ("y_true", "y_pred", "confusion_matrix", "classification_report")}
+    
+    for line in _dict_to_kv_lines(metrics_for_pdf):
         pdf.multi_cell(0, 6, line)
 
     # Add plots
     for img in image_paths:
         pdf.add_page()
         pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 8, os.path.basename(img), ln=True)
+        pdf.cell(0, 8, os.path.basename(img).replace(".png", "").replace("_", " ").title(), ln=True)
         pdf.image(img, x=15, w=180)
 
     # Confusion matrix
     if cm_path:
         pdf.add_page()
+        pdf.set_font("Arial", "B", 12)
         pdf.cell(0, 8, "Confusion Matrix", ln=True)
         pdf.image(cm_path, x=15, w=180)
 
@@ -162,10 +244,13 @@ def generate_train_report(history, metrics, model_name, output_dir):
         pdf.add_page()
         pdf.set_font("Arial", "B", 12)
         pdf.cell(0, 6, "Classification Report", ln=True)
-        pdf.set_font("Arial", "", 10)
-        with open(cls_report_path) as f:
-            for line in f:
-                pdf.multi_cell(0, 5, line)
+        pdf.set_font("Arial", "", 9)
+        try:
+            with open(cls_report_path) as f:
+                for line in f:
+                    pdf.multi_cell(0, 5, line.strip())
+        except Exception:
+            pass
 
     pdf.output(pdf_path)
     return pdf_path

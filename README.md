@@ -62,19 +62,27 @@ This project merges **AutoML + Explainable AI (XAI)** into one modular, extendab
 
 ExplainDL performs a forward-pass variance check to pick the best model.
 
+**New Features:**
+- **Model Comparison Dashboard**: See all candidate models with scores, descriptions, pros/cons
+- **Manual Override Mode**: Choose a specific model architecture if you prefer
+- **Selection Explanations**: Understand why a particular model was selected
+- **Training Explanations**: Get human-readable explanations of the training process
+- **Prediction Explanations**: Understand what the results mean in plain language
+
 ### **Performance & Explainability**
 
--   Accuracy, Precision, Recall, F1-score
+-   **Comprehensive Metrics**: Accuracy, Precision, Recall, F1-score, Confusion Matrix, Classification Report
 
--   Confusion Matrix
+-   **Visualizations**: Loss/Accuracy curves, Confusion Matrix, Prediction Distribution (Histogram + Pie Chart)
 
--   Classification Report
+-   **Multi-Layer Explainability**:
+    - **Model Selection**: Why a model was chosen, comparison of all candidates
+    - **Training Phase**: How training progressed, what metrics mean, data-specific insights
+    - **Prediction Phase**: What predictions mean, how the model made decisions, actionable insights
 
--   Prediction Distribution (Histogram + Pie Chart)
+-   **Human-Readable Explanations**: Text-based explanations for all stages (selection, training, prediction)
 
--   Non-technical explanation text
-
--   Auto-generated PDF report
+-   **Auto-generated PDF Report**: Complete report with all metrics, visualizations, and explanations
 
 ### **Hyperparameter Tuning (Optional)**
 
@@ -86,11 +94,15 @@ Powered by **Keras-Tuner RandomSearch**
 
 ### **User-Friendly UI (Streamlit)**
 
--   Upload datasets
+-   Upload datasets with automatic validation
+
+-   **Model Selection**: Choose automatic or manual model selection
 
 -   Select tuning options
 
--   View metrics, graphs, explanations
+-   View comprehensive metrics, graphs, and explanations
+
+-   **Real-time Feedback**: See model comparison, selection reasoning, and training progress
 
 -   Download reports and predictions
 
@@ -149,11 +161,13 @@ Access locally at:\
 **SUPPORTED DATA FORMATS**
 -----------------------------
 
-| Type | Format | Example Use-Case |
-| --- | --- | --- |
-| Tabular | `.csv`, `.xlsx` | Finance, medical records |
-| Image | `.zip` (folders = classes) | Cats vs Dogs, defect detection |
-| Text | `.txt` (`label <TAB> text`) | Sentiment analysis |
+| Type | Format | Example Use-Case | Requirements |
+| --- | --- | --- | --- |
+| Tabular | `.csv`, `.xlsx` | Finance, medical records | Min 10 rows, 2 columns (including target) |
+| Image | `.zip` (folders = classes) | Cats vs Dogs, defect detection | Min 10 images, organized in class folders |
+| Text | `.txt` (`label <TAB> text`) | Sentiment analysis | Format: `label<TAB>text` or `label,text` per line |
+
+**Note**: ExplainDL includes comprehensive validation and error handling for incorrect dataset formats. Users receive clear error messages with guidance on how to fix issues.
 
 * * * * *
 
@@ -184,42 +198,61 @@ Access locally at:\
 
 -   **Human-readable explanation text**
 
-### **3\. PDF Report (Auto-Generated)**
+### **3\. Comprehensive PDF Reports (Auto-Generated & Downloadable)**
 
-Contains:
+**Training Report PDF** includes:
+-   **Model Selection Details**: Which model was selected and why
+-   **Model Comparison**: All candidate models with scores, descriptions, pros/cons
+-   **Selection Explanation**: Detailed reasoning for model choice
+-   **Training Explanation**: How training progressed and what metrics mean
+-   **Performance Metrics**: Accuracy, Precision, Recall, F1-score
+-   **Visualizations**: Loss/Accuracy curves, Confusion Matrix
+-   **Classification Report**: Per-class performance breakdown
+-   **Data-Specific Insights**: Tailored explanations based on dataset type
 
--   Summary of metrics
+**Prediction Report PDF** includes:
+-   **Prediction Summary**: Class distribution and statistics
+-   **Visualizations**: Prediction histogram and pie chart
+-   **Explanation**: What predictions mean in plain language
+-   **Actionable Insights**: Tips for interpreting results
 
--   All graphs
-
--   Confusion matrix
-
--   Classification report
-
--   Simple non-technical explanation
+**Download Options:**
+-   Training Report PDF (available after training)
+-   Prediction Report PDF (available after prediction)
+-   Predictions CSV (for further analysis)
 
 * * * * *
 
 **EXAMPLE USAGE FLOW**
 -------------------------
 
-1.  Run the Streamlit app
+1.  Run the Streamlit app: `streamlit run app.py`
 
-2.  Upload labelled dataset
+2.  Upload labelled dataset (CSV/XLSX for tabular, ZIP for images, TXT for text)
 
-3.  Optionally enable hyperparameter tuning
+3.  **Choose Model Selection Mode**:
+    -   Automatic (Recommended): System selects best model
+    -   Manual Override: Select specific model architecture
 
-4.  Train the model
+4.  Optionally enable hyperparameter tuning
 
-5.  Download:
+5.  Train the model
 
-    -   Predictions CSV
+6.  **View Results**:
+    -   Model selection details and comparison
+    -   Training metrics and visualizations
+    -   Explanations (selection, training process)
 
-    -   Training Report PDF
+7.  **Download Training Report PDF** (comprehensive report with all details)
 
-6.  Upload unlabelled dataset and run predictions
+8.  Upload unlabelled dataset and run predictions
 
-7.  View explainability graphs and text summary
+9.  **View Prediction Results**:
+    -   Predictions table
+    -   Visualizations (histogram, pie chart)
+    -   Explanation text
+
+10. **Download Prediction Report PDF** and Predictions CSV
 
 * * * * *
 
@@ -242,7 +275,7 @@ Contains:
 **CURRENT LIMITATIONS**
 --------------------------
 
--   Accuracy may vary for small datasets
+-   Accuracy may vary for very small datasets (< 50 samples)
 
 -   Grad-CAM may fail with single-class datasets
 
@@ -251,6 +284,11 @@ Contains:
 -   Hyperparameter search is intentionally shallow for speed
 
 -   No ONNX export yet
+
+**Error Handling**
+-   Comprehensive validation for all dataset types
+-   Clear error messages for incorrect formats
+-   Automatic detection and reporting of data quality issues
 
 * * * * *
 

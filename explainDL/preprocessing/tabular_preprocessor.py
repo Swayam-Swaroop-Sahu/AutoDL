@@ -28,12 +28,40 @@ class TabularPreprocessor:
     def fit_transform(self, df: pd.DataFrame, target_col=None):
         df = df.copy()
 
+        # Validate input
+        if df.empty:
+            raise ValueError("Cannot preprocess empty DataFrame. Please provide data with at least one row.")
+        
+        if df.shape[0] < 2:
+            raise ValueError(f"DataFrame has too few rows ({df.shape[0]}). Minimum 2 rows required.")
+        
+        if df.shape[1] < 2:
+            raise ValueError(f"DataFrame has too few columns ({df.shape[1]}). Minimum 2 columns required (1 feature + 1 target).")
+
         # Auto-detect target column
         if target_col is None:
             target_col = df.columns[-1]
+        
+        # Validate target column exists
+        if target_col not in df.columns:
+            raise ValueError(f"Target column '{target_col}' not found in DataFrame. Available columns: {list(df.columns)}")
 
         y_raw = df[target_col].astype(str)
+        
+        # Check for empty target values
+        if y_raw.isna().all():
+            raise ValueError(f"Target column '{target_col}' contains only missing values. Please provide valid labels.")
+        
+        # Check for sufficient unique labels
+        unique_labels = y_raw.dropna().unique()
+        if len(unique_labels) < 2:
+            raise ValueError(f"Target column has only {len(unique_labels)} unique label(s). Minimum 2 different labels required for classification.")
+        
         X = df.drop(columns=[target_col]).copy()
+
+        # Validate we have features
+        if X.empty or X.shape[1] == 0:
+            raise ValueError("No feature columns available after removing target column. Please ensure the dataset has at least one feature column.")
 
         self.feature_columns = list(X.columns)
 

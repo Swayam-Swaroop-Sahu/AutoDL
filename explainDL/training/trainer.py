@@ -142,16 +142,19 @@ def train_model(
 
         history = history_obj.history
 
-        # Predictions on validation split OR full X (safer)
-        y_pred_probs = model.predict(X)
-
+        # Use validation set for metrics (more accurate than training set)
+        # Split matches the validation_split=0.15 used in fit()
+        from sklearn.model_selection import train_test_split
+        _, X_val, _, y_val = train_test_split(X, y, test_size=0.15, random_state=42, stratify=y if len(set(y)) > 1 else None)
+        y_pred_probs = model.predict(X_val, verbose=0)
+        
         # Convert to class indices
         if y_pred_probs.ndim == 2 and y_pred_probs.shape[1] > 1:
             y_pred = np.argmax(y_pred_probs, axis=1)
-            y_true = y
         else:
             y_pred = (y_pred_probs > 0.5).astype(int).flatten()
-            y_true = y
+        
+        y_true = y_val
 
     # ------------------------------------
     # METRIC COMPUTATION
