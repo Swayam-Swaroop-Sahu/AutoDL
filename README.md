@@ -31,7 +31,7 @@ ExplainDL supports **Tabular**, **Image**, and **Text datasets**, and intelligen
 
 -   Generates **Explainability outputs** (Confusion Matrix, SHAP, LIME, Grad-CAM, prediction distribution)
 
--   Produces a **detailed PDF report**
+
 
 -   Supports **Hyperparameter Tuning** with Keras-Tuner
 
@@ -82,7 +82,7 @@ ExplainDL performs a forward-pass variance check to pick the best model.
 
 -   **Human-Readable Explanations**: Text-based explanations for all stages (selection, training, prediction)
 
--   **Auto-generated PDF Report**: Complete report with all metrics, visualizations, and explanations
+
 
 ### **Hyperparameter Tuning (Optional)**
 
@@ -198,28 +198,7 @@ Access locally at:\
 
 -   **Human-readable explanation text**
 
-### **3\. Comprehensive PDF Reports (Auto-Generated & Downloadable)**
 
-**Training Report PDF** includes:
--   **Model Selection Details**: Which model was selected and why
--   **Model Comparison**: All candidate models with scores, descriptions, pros/cons
--   **Selection Explanation**: Detailed reasoning for model choice
--   **Training Explanation**: How training progressed and what metrics mean
--   **Performance Metrics**: Accuracy, Precision, Recall, F1-score
--   **Visualizations**: Loss/Accuracy curves, Confusion Matrix
--   **Classification Report**: Per-class performance breakdown
--   **Data-Specific Insights**: Tailored explanations based on dataset type
-
-**Prediction Report PDF** includes:
--   **Prediction Summary**: Class distribution and statistics
--   **Visualizations**: Prediction histogram and pie chart
--   **Explanation**: What predictions mean in plain language
--   **Actionable Insights**: Tips for interpreting results
-
-**Download Options:**
--   Training Report PDF (available after training)
--   Prediction Report PDF (available after prediction)
--   Predictions CSV (for further analysis)
 
 * * * * *
 
@@ -243,7 +222,7 @@ Access locally at:\
     -   Training metrics and visualizations
     -   Explanations (selection, training process)
 
-7.  **Download Training Report PDF** (comprehensive report with all details)
+
 
 8.  Upload unlabelled dataset and run predictions
 
@@ -252,7 +231,7 @@ Access locally at:\
     -   Visualizations (histogram, pie chart)
     -   Explanation text
 
-10. **Download Prediction Report PDF** and Predictions CSV
+
 
 * * * * *
 
@@ -268,7 +247,7 @@ Access locally at:\
 | UI | Streamlit |
 | Data | Pandas, NumPy, Scikit-learn |
 | Visualization | Matplotlib, Seaborn |
-| Reporting | FPDF |
+
 
 * * * * *
 
