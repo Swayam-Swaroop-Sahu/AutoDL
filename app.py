@@ -9,6 +9,7 @@ import json
 from explainDL.core.pipeline_train import train_pipeline
 from explainDL.core.pipeline_predict import predict_pipeline
 from explainDL.registry import register_model
+from explainDL.data.detect_type import detect_dataset_type
 
 # -----------------------------------------------------------
 # STREAMLIT CONFIG
@@ -59,6 +60,19 @@ if train_file and train_file.name.lower().endswith((".csv", ".xlsx")):
     except Exception as e:
         st.warning(f"Preview unavailable: {e}")
 
+# Model Selection Mode
+st.subheader("Model Selection")
+model_selection_mode = st.radio(
+    "Model Selection Mode",
+    ["Automatic (Recommended)", "Manual Override"],
+    help="Choose automatic selection or manually select a model"
+)
+
+manual_model_selection = None
+if model_selection_mode == "Manual Override":
+    # We'll populate this after detecting dataset type
+    st.info("Please upload a dataset first to see available models.")
+
 enable_tuning = st.checkbox("Enable hyperparameter tuning", value=False, help="If enabled, ExplainDL will try tuning (best-effort).")
 if enable_tuning:
     st.subheader("Hyperparameter Tuning Settings")
@@ -69,13 +83,13 @@ if enable_tuning:
         help="Choose how extensive the tuning search should be."
     )
 
-    if tuning_mode == "Fast (recommended)":
+    if tuning_mode == "Fast (max_trials = 4)":
         max_trials = 4
         epochs = 5
-    elif tuning_mode == "Balanced":
+    elif tuning_mode == "Balanced (max_trials = 8)":
         max_trials = 8
         epochs = 10
-    else:
+    else:  # Thorough
         max_trials = 15
         epochs = 15
 
@@ -115,12 +129,46 @@ if enable_tuning:
 else:
     user_tuning_config = None
 
+# Detect dataset type and show available models for manual selection
+if train_file and model_selection_mode == "Manual Override":
+    try:
+        dataset_path_temp = save_uploaded_file(train_file, prefix="temp_detect")
+        dataset_type = detect_dataset_type(dataset_path_temp)
+        
+        available_models = []
+        if dataset_type == "tabular":
+            available_models = ["MLP-Small", "MLP-Medium", "MLP-Large"]
+        elif dataset_type == "image":
+            available_models = ["Small-CNN", "MobileNetV2", "EfficientNetB0"]
+        elif dataset_type == "text":
+            available_models = ["BiLSTM", "LSTM", "Text-CNN"]
+        else:
+            st.warning(f"Dataset type '{dataset_type}' detected. Manual model selection may not be available.")
+        
+        if available_models:
+            manual_model_selection = st.selectbox(
+                "Select Model",
+                available_models,
+                help="Choose a specific model architecture to use",
+                key="manual_model_select"
+            )
+            st.info(f"**Detected dataset type:** {dataset_type}")
+        else:
+            manual_model_selection = None
+    except Exception as e:
+        st.warning(f"Could not detect dataset type: {e}")
+        manual_model_selection = None
+elif model_selection_mode == "Automatic (Recommended)":
+    manual_model_selection = None
+
 train_clicked = st.button("Train Model")
 train_result = None
 
 if train_clicked:
     if train_file is None:
         st.error("Please upload a labelled dataset.")
+    elif model_selection_mode == "Manual Override" and manual_model_selection is None:
+        st.error("Please select a model in Manual Override mode.")
     else:
         try:
             dataset_path = save_uploaded_file(train_file, prefix="train")
@@ -139,7 +187,12 @@ if train_clicked:
                     raise
 
             with st.spinner("Training model... (this can take some time)"):
-                train_result = train_pipeline(dataset_path, enable_tuning=enable_tuning)
+                train_result = train_pipeline(
+                    dataset_path, 
+                    enable_tuning=enable_tuning,
+                    tuning_config=user_tuning_config if enable_tuning else None,
+                    manual_model_selection=manual_model_selection if model_selection_mode == "Manual Override" else None
+                )
 
             # save in session
             st.session_state.model_dir = train_result["model_dir"]
@@ -157,6 +210,61 @@ if train_clicked:
             st.write("**Dataset type:**", f"`{train_result['dataset_type']}`")
             if train_result.get("class_names"):
                 st.write("Class names:", train_result["class_names"])
+            
+            # Display Model Selection Information
+            if train_result.get("model_comparison"):
+                comparison = train_result["model_comparison"]
+                st.subheader("📊 Model Selection Details")
+                
+                # Selected model info
+                selected_name = comparison.get("selected", train_result.get("model_name", "Unknown"))
+                reason = comparison.get("reason", "No reason provided")
+                
+                st.markdown(f"**✅ Selected Model:** `{selected_name}`")
+                st.info(f"**Reason:** {reason}")
+
+                # Optional detailed selection explanation
+                selection_exp_path = train_result.get("selection_explanation_path")
+                if selection_exp_path and os.path.exists(selection_exp_path):
+                    with open(selection_exp_path, "r", encoding="utf-8") as f:
+                        st.markdown("**How the model was chosen (text summary):**")
+                        st.text(f.read())
+                
+                # Model comparison table
+                if comparison.get("models"):
+                    st.markdown("### Model Comparison")
+                    comparison_df = pd.DataFrame(comparison["models"])
+                    
+                    # Format the comparison table
+                    display_df = pd.DataFrame({
+                        "Model": comparison_df["name"],
+                        "Score": comparison_df["score"].apply(lambda x: f"{x:.4f}"),
+                        "Description": comparison_df["description"],
+                        "Parameters": comparison_df["params"],
+                        "Pros": comparison_df["pros"],
+                        "Cons": comparison_df["cons"]
+                    })
+                    
+                    # Display table with selected model marked
+                    st.dataframe(display_df, use_container_width=True)
+                    
+                    # Show which model was selected
+                    st.markdown(f"**Note:** The selected model ({selected_name}) is highlighted in the comparison above.")
+                    
+                    # Show score comparison chart
+                    st.markdown("### Score Comparison")
+                    score_df = pd.DataFrame({
+                        "Model": comparison_df["name"],
+                        "Score": comparison_df["score"]
+                    })
+                    st.bar_chart(score_df.set_index("Model"))
+
+            # Training explanation text
+            training_exp_path = train_result.get("training_explanation_path")
+            if training_exp_path and os.path.exists(training_exp_path):
+                st.subheader("📝 Training Explanation")
+                with open(training_exp_path, "r", encoding="utf-8") as f:
+                    st.text(f.read())
 
             # show visual explainability (plots live)
             plots_dir = os.path.join(train_result["model_dir"], "plots")
