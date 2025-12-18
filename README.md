@@ -4,7 +4,7 @@
 **Author:** Swayam Swaroop Sahu\
 **Institution:** VIT Vellore\
 **Department:** Computer Science and Engineering\
-**Project Type:** Academic Research Project (MVP Stage)\
+**Project Type:** Academic Research Project (MVP Stage)
 
 * * * * *
 
