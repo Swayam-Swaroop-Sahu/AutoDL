@@ -5,7 +5,6 @@
 **Institution:** VIT Vellore\
 **Department:** Computer Science and Engineering\
 **Project Type:** Academic Research Project (MVP Stage)\
-**Semester:** 5th Semester, 2025
 
 * * * * *
 
