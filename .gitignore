@@ -16,6 +16,7 @@ env/
 Thumbs.db
 .vscode/
 .idea/
+.cursor/
 
 # Streamlit artifacts
 .streamlit/
@@ -26,6 +27,7 @@ ExplainDL_Registry/
 
 # Reports
 reports/*.pdf
+*.docx
 
 # Temp files
 tmp/
