@@ -1,4 +1,4 @@
-**ExplainDL: Automated Deep Learning Analysis Tool**
+**ExplainDL - Automated Classification and Explainability System**
 =======================================================
 
 **Author:** Swayam Swaroop Sahu\
@@ -11,7 +11,7 @@
 **OVERVIEW**
 ---------------
 
-**ExplainDL** is an **Automated Deep Learning Analysis Tool** built to make AI accessible even to non-technical users.\
+**ExplainDL** is an **Automated Classification and Explainability System** built to make AI accessible even to non-technical users.\
 It automates the full ML pipeline:
 
 -   **Dataset Upload → Preprocessing → Model Selection → Training → Evaluation → Explainability → Report Generation**
@@ -34,7 +34,7 @@ ExplainDL supports **Tabular**, **Image**, and **Text datasets**, and intelligen
 
 -   Supports **Hyperparameter Tuning** with Keras-Tuner
 
-This project merges **AutoML + Explainable AI (XAI)** into one modular, extendable framework.
+This project combines automated deep learning workflow orchestration with explainability features in a modular framework.
 
 * * * * *
 
@@ -209,7 +209,7 @@ Access locally at:\
 2.  Upload labelled dataset (CSV/XLSX for tabular, ZIP for images, TXT for text)
 
 3.  **Choose Model Selection Mode**:
-    -   Automatic (Recommended): System selects best model
+    -   Automatic (Recommended): System selects the most suitable model
     -   Manual Override: Select specific model architecture
 
 4.  Optionally enable hyperparameter tuning
