@@ -130,25 +130,38 @@ ExplainDL/
 
 * * * * *
 
-⚙️ **INSTALLATION & SETUP**
+**INSTALLATION & SETUP**
 ---------------------------
 
 ### **1 Clone the Repository**
 
-`git clone https://github.com/<your-username>/ExplainDL.git
-cd ExplainDL`
+`git clone https://github.com/Swayam-Swaroop-Sahu/ExplainDL`
+`cd ExplainDL`
 
-### **2 Create & Activate Environment**
+### **2 Create & Activate Environment (Optional - pip)**
 
-`python -m venv venv
-venv\Scripts\activate        # Windows
-source venv/bin/activate     # Mac/Linux`
+`python -m venv venv`
+`venv\Scripts\activate        # Windows`
+`source venv/bin/activate     # Mac/Linux`
 
 ### **3 Install Dependencies**
+
+Using uv (Recommended):
+
+`pip install uv`
+`uv add -r requirements.txt`
+
+Using pip:
 
 `pip install -r requirements.txt`
 
 ### **4 Run ExplainDL**
+
+Using uv:
+
+`uv run streamlit run app.py`
+
+Using pip:
 
 `streamlit run app.py`
 
@@ -170,7 +183,7 @@ Access locally at:\
 
 * * * * *
 
-📤 **OUTPUT & RESULTS**
+**OUTPUT & RESULTS**
 -----------------------
 
 ### **1\. Performance Metrics**
