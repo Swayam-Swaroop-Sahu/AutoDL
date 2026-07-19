@@ -1,4 +1,4 @@
-**ExplainDL - Automated Classification and Explainability System**
+**AutoDL - Automated Classification and Explainability System**
 =======================================================
 
 **Author:** Swayam Swaroop Sahu\
@@ -11,12 +11,12 @@
 **OVERVIEW**
 ---------------
 
-**ExplainDL** is an **Automated Classification and Explainability System** built to make AI accessible even to non-technical users.\
+**AutoDL** is an **Automated Classification and Explainability System** built to make AI accessible even to non-technical users.\
 It automates the full ML pipeline:
 
 -   **Dataset Upload → Preprocessing → Model Selection → Training → Evaluation → Explainability → Report Generation**
 
-ExplainDL supports **Tabular**, **Image**, and **Text datasets**, and intelligently:
+AutoDL supports **Tabular**, **Image**, and **Text datasets**, and intelligently:
 
 -   Detects dataset type
 
@@ -59,7 +59,7 @@ This project combines automated deep learning workflow orchestration with explai
 | **Image** | Small-CNN, MobileNetV2, EfficientNetB0 |
 | **Text** | LSTM, BiLSTM, Text-CNN |
 
-ExplainDL performs a forward-pass variance check to pick the best model.
+AutoDL performs a forward-pass variance check to pick the best model.
 
 **New Features:**
 - **Model Comparison Dashboard**: See all candidate models with scores, descriptions, pros/cons
@@ -110,11 +110,11 @@ Powered by **Keras-Tuner RandomSearch**
 **PROJECT STRUCTURE**
 ------------------------
 <pre>
-ExplainDL/
+AutoDL/
 │
 ├── app.py                        → Streamlit front-end UI
 │
-├── explainDL/
+├── AutoDL/
 │   ├── data/                     → Data loading, extraction, type detection
 │   ├── preprocessing/            → Tabular, image, text preprocessors
 │   ├── model_selection/          → Auto model selector + hyperparameter tuner
@@ -135,8 +135,8 @@ ExplainDL/
 
 ### **1 Clone the Repository**
 
-`git clone https://github.com/Swayam-Swaroop-Sahu/ExplainDL`\
-`cd ExplainDL`
+`git clone https://github.com/Swayam-Swaroop-Sahu/AutoDL`\
+`cd AutoDL`
 
 ### **2 Create & Activate Environment (Optional - pip)**
 
@@ -159,7 +159,7 @@ Using pip:
 
 `pip install -r requirements.txt`
 
-### **4 Run ExplainDL**
+### **4 Run AutoDL**
 
 Using uv:
 
@@ -186,7 +186,7 @@ Open in Browser:
 | Image | `.zip` (folders = classes) | Cats vs Dogs, defect detection | Min 10 images, organized in class folders |
 | Text | `.txt` (`label <TAB> text`) | Sentiment analysis | Format: `label<TAB>text` or `label,text` per line |
 
-**Note**: ExplainDL includes comprehensive validation and error handling for incorrect dataset formats. Users receive clear error messages with guidance on how to fix issues.
+**Note**: AutoDL includes comprehensive validation and error handling for incorrect dataset formats. Users receive clear error messages with guidance on how to fix issues.
 
 * * * * *
 
@@ -305,14 +305,14 @@ Open in Browser:
 
 -   AutoML search space expansion
 
--   Patent exploration for ExplainDL architecture
+-   Patent exploration for AutoDL architecture
 
 * * * * *
 
 **REFERENCES**
 -----------------
 
-ExplainDL builds upon ideas from:
+AutoDL builds upon ideas from:
 
 -   AutoML: AutoKeras, Auto-Sklearn, H2O.ai
 
