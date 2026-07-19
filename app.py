@@ -1,4 +1,4 @@
-# app.py (root of project) — Streamlit UI for ExplainDL
+# Streamlit UI for AutoDL
 import streamlit as st
 import os
 import tempfile
@@ -6,31 +6,29 @@ import pandas as pd
 import traceback
 import json
 
-from explainDL.core.pipeline_train import train_pipeline
-from explainDL.core.pipeline_predict import predict_pipeline
-from explainDL.registry import register_model
-from explainDL.data.detect_type import detect_dataset_type
+from src.core.pipeline_train import train_pipeline
+from src.core.pipeline_predict import predict_pipeline
+from src.registry import register_model
+from src.data.detect_type import detect_dataset_type
 
 # -----------------------------------------------------------
 # STREAMLIT CONFIG
 # -----------------------------------------------------------
-st.set_page_config(page_title="ExplainDL", page_icon="🤖", layout="wide")
-st.title("ExplainDL – Automated Deep Learning Tool")
+st.set_page_config(page_title="AutoDL", page_icon="🤖", layout="wide")
+st.title("AutoDL – Automated Classification and Insights")
 st.write("Upload a labelled dataset to train a model, then upload unlabelled data for prediction.")
 
 # -----------------------------------------------------------
 # HELPER: save uploaded file safely (avoids NamedTemporaryFile on Windows)
 # -----------------------------------------------------------
-def save_uploaded_file(uploaded_file, prefix="explaindl"):
+def save_uploaded_file(uploaded_file, prefix="autodl"):
     try:
         uploaded_file.seek(0)
     except Exception:
         pass
-    ext = os.path.splitext(uploaded_file.name)[1]
-    safe_name = uploaded_file.name.replace(" ", "_").replace(":", "_")
-    temp_dir = tempfile.gettempdir()
-    path = os.path.join(temp_dir, f"{prefix}_{safe_name}")
-    with open(path, "wb") as f:
+    ext = os.path.splitext(uploaded_file.name)[1].lower()
+    fd, path = tempfile.mkstemp(prefix=f"{prefix}_", suffix=ext)
+    with os.fdopen(fd, "wb") as f:
         f.write(uploaded_file.read())
     return path
 
@@ -73,7 +71,7 @@ if model_selection_mode == "Manual Override":
     # We'll populate this after detecting dataset type
     st.info("Please upload a dataset first to see available models.")
 
-enable_tuning = st.checkbox("Enable hyperparameter tuning", value=False, help="If enabled, ExplainDL will try tuning (best-effort).")
+enable_tuning = st.checkbox("Enable hyperparameter tuning", value=False, help="Runs a bounded search over the selected model family.")
 if enable_tuning:
     st.subheader("Hyperparameter Tuning Settings")
 
@@ -303,7 +301,7 @@ if train_clicked:
             # download report pdf
             if train_result.get("report_path") and os.path.exists(train_result["report_path"]):
                 with open(train_result["report_path"], "rb") as f:
-                    st.download_button("Download Training Report (PDF)", data=f, file_name=f"ExplainDL_train_{train_result['model_id']}.pdf")
+                    st.download_button("Download Training Report (PDF)", data=f, file_name=f"AutoDL_train_{train_result['model_id']}.pdf")
 
         except FileNotFoundError as e:
             st.error(f"**File Not Found Error:** {str(e)}")
@@ -360,7 +358,7 @@ if st.session_state.model_dir:
                 st.dataframe(df_pred.head(50))
 
                 st.download_button("Download Predictions CSV", data=df_pred.to_csv(index=False).encode("utf-8"),
-                                   file_name=f"ExplainDL_predictions_{st.session_state.model_id}.csv")
+                                   file_name=f"AutoDL_predictions_{st.session_state.model_id}.csv")
 
                 # show prediction plots & explanation
                 plots_dir = os.path.join(st.session_state.model_dir, "plots")
@@ -385,7 +383,7 @@ if st.session_state.model_dir:
                 if report_path and os.path.exists(report_path):
                     with open(report_path, "rb") as f:
                         st.download_button("Download Prediction Report (PDF)", data=f,
-                                           file_name=f"ExplainDL_predict_{st.session_state.model_id}.pdf")
+                                           file_name=f"AutoDL_predict_{st.session_state.model_id}.pdf")
 
             except FileNotFoundError as e:
                 st.error(f"**File Not Found Error:** {str(e)}")
@@ -403,4 +401,4 @@ else:
     st.info("Train a model first to unlock prediction mode.")
 
 st.markdown("---")
-st.caption("© 2025 ExplainDL | Developed by Swayam Swaroop Sahu")
+st.caption("AutoDL | automated classification with transparent validation")

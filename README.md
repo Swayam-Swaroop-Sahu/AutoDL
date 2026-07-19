@@ -1,331 +1,72 @@
-**AutoDL - Automated Classification and Explainability System**
-=======================================================
+# AutoDL
 
-**Author:** Swayam Swaroop Sahu\
-**Institution:** VIT Vellore\
-**Department:** Computer Science and Engineering\
-**Project Type:** Academic Research Project (MVP Stage)
+AutoDL is an MVP for non-technical users who need to turn a labelled dataset into a reproducible classification model, a held-out validation report, and batch predictions. It currently supports tabular, image, and text classification.
 
-* * * * *
+## What it does today
 
-**OVERVIEW**
----------------
+1. Accepts labelled tabular (`.csv`, `.xlsx`), image (`.zip`), or text (`.txt`) data.
+2. Validates and preprocesses the input, then selects a transparent baseline architecture or honours a manual choice.
+3. Trains the model, evaluates it on a held-out validation split, saves the model and preprocessing artifacts, and creates a PDF report.
+4. Accepts compatible unlabelled data for batch predictions.
 
-**AutoDL** is an **Automated Classification and Explainability System** built to make AI accessible even to non-technical users.\
-It automates the full ML pipeline:
+The application is classification-only. It does **not** currently support regression, multi-label classification, time series, object detection, semantic segmentation, or production-grade AutoML model comparison.
 
--   **Dataset Upload → Preprocessing → Model Selection → Training → Evaluation → Explainability → Report Generation**
+## Repository layout
 
-AutoDL supports **Tabular**, **Image**, and **Text datasets**, and intelligently:
-
--   Detects dataset type
-
--   Preprocesses data
-
--   Selects the optimal model dynamically (MLP / CNN / LSTM / BiLSTM / Text-CNN)
-
--   Trains and evaluates models
-
--   Computes full metrics (Accuracy, Precision, Recall, F1-score)
-
--   Generates **Explainability outputs** (Confusion Matrix, SHAP, LIME, Grad-CAM, prediction distribution)
-
-
-
--   Supports **Hyperparameter Tuning** with Keras-Tuner
-
-This project combines automated deep learning workflow orchestration with explainability features in a modular framework.
-
-* * * * *
-
-**KEY FEATURES**
--------------------
-
-### **Dataset Intelligence**
-
--   Automatic dataset type detection
-
--   Tabular (.csv, .xlsx), Image (.zip), Text (.txt with `label<TAB>text`)
-
-### **Preprocessing Pipelines**
-
--   Scaling, encoding, tokenization, augmentation depending on data type
-
-### **Automated Model Selection**
-
-| Data Type | Model Options |
-| --- | --- |
-| **Tabular** | MLP-Small, Medium, Large |
-| **Image** | Small-CNN, MobileNetV2, EfficientNetB0 |
-| **Text** | LSTM, BiLSTM, Text-CNN |
-
-AutoDL performs a forward-pass variance check to pick the best model.
-
-**New Features:**
-- **Model Comparison Dashboard**: See all candidate models with scores, descriptions, pros/cons
-- **Manual Override Mode**: Choose a specific model architecture if you prefer
-- **Selection Explanations**: Understand why a particular model was selected
-- **Training Explanations**: Get human-readable explanations of the training process
-- **Prediction Explanations**: Understand what the results mean in plain language
-
-### **Performance & Explainability**
-
--   **Comprehensive Metrics**: Accuracy, Precision, Recall, F1-score, Confusion Matrix, Classification Report
-
--   **Visualizations**: Loss/Accuracy curves, Confusion Matrix, Prediction Distribution (Histogram + Pie Chart)
-
--   **Multi-Layer Explainability**:
-    - **Model Selection**: Why a model was chosen, comparison of all candidates
-    - **Training Phase**: How training progressed, what metrics mean, data-specific insights
-    - **Prediction Phase**: What predictions mean, how the model made decisions, actionable insights
-
--   **Human-Readable Explanations**: Text-based explanations for all stages (selection, training, prediction)
-
-
-
-### **Hyperparameter Tuning (Optional)**
-
-Powered by **Keras-Tuner RandomSearch**
-
--   Tunable layers, units, dropout, learning rate, embedding size
-
--   Works for tabular, image, and text pipelines
-
-### **User-Friendly UI (Streamlit)**
-
--   Upload datasets with automatic validation
-
--   **Model Selection**: Choose automatic or manual model selection
-
--   Select tuning options
-
--   View comprehensive metrics, graphs, and explanations
-
--   **Real-time Feedback**: See model comparison, selection reasoning, and training progress
-
--   Download reports and predictions
-
-* * * * *
-
-**PROJECT STRUCTURE**
-------------------------
-<pre>
+```text
 AutoDL/
-│
-├── app.py                        → Streamlit front-end UI
-│
-├── AutoDL/
-│   ├── data/                     → Data loading, extraction, type detection
-│   ├── preprocessing/            → Tabular, image, text preprocessors
-│   ├── model_selection/          → Auto model selector + hyperparameter tuner
-│   ├── training/                 → Model training + metrics
-│   ├── explainability/           → Reports, SHAP/LIME/Grad-CAM utilities
-│   ├── core/                     → Pipeline orchestrators for training/prediction
-│   ├── registry.py               → Model registry handler
-│   └── utils/                    → Helper utilities
-│
-├── requirements.txt              → Dependency list
-└── README.md                     → Project documentation
-</pre>
+├── app.py                  # Streamlit interface
+├── src/                    # Application package (renamed from explainDL)
+│   ├── core/               # Training and prediction orchestration
+│   ├── data/               # Input readers and type detection
+│   ├── preprocessing/      # Modality-specific transformations
+│   ├── model_selection/    # Baseline architectures and tuning
+│   ├── training/           # Fit loop and held-out metrics
+│   ├── explainability/     # Reports and explainability helpers
+│   └── registry/           # Local model index
+├── pyproject.toml          # Primary dependency declaration
+└── uv.lock                 # Reproducible dependency lock
+```
 
-* * * * *
+All Python imports use `src`, for example `from src.core.pipeline_train import train_pipeline`. The old `explainDL/` directory has been removed.
 
-**INSTALLATION & SETUP**
----------------------------
+## Run locally
 
-### **1 Clone the Repository**
+Requires Python 3.11 or newer and a supported TensorFlow environment.
 
-`git clone https://github.com/Swayam-Swaroop-Sahu/AutoDL`\
-`cd AutoDL`
+```bash
+uv sync
+uv run streamlit run app.py
+```
 
-### **2 Create & Activate Environment (Optional - pip)**
+Alternatively, install the locked requirements and run `streamlit run app.py`.
 
-`python -m venv venv`
-        
-Windows:\
-`venv\Scripts\activate`
+## Dataset contracts
 
-Mac/Linux:\
-`source venv/bin/activate`
-
-### **3 Install Dependencies**
-
-Using uv (Recommended):
-
-`pip install uv`\
-`uv add -r requirements.txt`
-
-Using pip:
-
-`pip install -r requirements.txt`
-
-### **4 Run AutoDL**
-
-Using uv:
-
-`uv run streamlit run app.py`
-
-Using pip:
-
-`streamlit run app.py`
-
-### **Access Locally**
-
-Open in Browser:
-
-**<http://localhost:8501>**
-
-* * * * *
-
-**SUPPORTED DATA FORMATS**
------------------------------
-
-| Type | Format | Example Use-Case | Requirements |
+| Modality | Training input | Prediction input | Important contract |
 | --- | --- | --- | --- |
-| Tabular | `.csv`, `.xlsx` | Finance, medical records | Min 10 rows, 2 columns (including target) |
-| Image | `.zip` (folders = classes) | Cats vs Dogs, defect detection | Min 10 images, organized in class folders |
-| Text | `.txt` (`label <TAB> text`) | Sentiment analysis | Format: `label<TAB>text` or `label,text` per line |
+| Tabular | CSV/XLSX, at least 10 rows, features plus target | CSV/XLSX with the original feature columns | The target is currently assumed to be the final training column. |
+| Images | ZIP with at least two class-name folders and 10 valid images | ZIP of images; folders optional | Each class needs enough examples for a validation split. |
+| Text | TXT, one `label<TAB>text` or `label,text` record per line, at least 10 lines | TXT, one text per line | Classification labels must have at least two distinct values. |
 
-**Note**: AutoDL includes comprehensive validation and error handling for incorrect dataset formats. Users receive clear error messages with guidance on how to fix issues.
+Uploaded data and generated model artifacts are stored locally. The local registry is ignored by Git.
 
-* * * * *
+## Validation and explainability
 
-**OUTPUT & RESULTS**
------------------------
+Reported accuracy, precision, recall, F1, confusion matrix, and classification report are calculated from held-out validation data—not the training examples. The selected model’s explanation distinguishes a scale-based baseline recommendation from an actual accuracy comparison.
 
-### **1\. Performance Metrics**
+The PDF reports currently provide metrics, learning curves, confusion matrices, class distributions, and plain-language summaries. SHAP, LIME, and Grad-CAM modules exist as utilities, but they are not yet consistently produced for every trained model; do not represent their availability as a complete explainability workflow.
 
--   Accuracy
+## Known MVP limitations
 
--   Precision
+- The model selector chooses a deterministic baseline from modality, feature shape, and sample count. It does not run a fair cross-validated model tournament.
+- The target-column assumption is unsuitable for many datasets; a production UI should make it explicit.
+- Training runs synchronously inside Streamlit, so it is not suitable for long jobs, multiple users, or GPU scheduling.
+- Artifacts lack dataset versioning, lineage, approval workflows, monitoring, authentication, and a deployment API.
+- TensorFlow/Keras models are saved locally; there is no model promotion, rollback, or serving layer.
 
--   Recall
+## Production direction
 
--   F1-score
+The next implementation should split the product into a browser UI, a job API/queue, object storage, a metadata database, and a model-serving service. Add schema/target selection, data-profiling and quality gates, stratified cross-validation, leakage checks, reproducible experiment tracking, calibrated probabilities, per-prediction explanations, drift monitoring, RBAC, and audit logs before presenting it as a production decision-support system.
 
--   Confusion Matrix
-
--   Per-class breakdown
-
-### **2\. Deep Explainability**
-
--   **Confusion Matrix heatmap**
-
--   **Prediction distribution** (histogram + pie chart)
-
--   **SHAP / LIME / Grad-CAM hooks (architecture-ready)**
-
--   **Human-readable explanation text**
-
-
-
-* * * * *
-
-**EXAMPLE USAGE FLOW**
--------------------------
-
-1.  Run the Streamlit app: `streamlit run app.py`
-
-2.  Upload labelled dataset (CSV/XLSX for tabular, ZIP for images, TXT for text)
-
-3.  **Choose Model Selection Mode**:
-    -   Automatic (Recommended): System selects the most suitable model
-    -   Manual Override: Select specific model architecture
-
-4.  Optionally enable hyperparameter tuning
-
-5.  Train the model
-
-6.  **View Results**:
-    -   Model selection details and comparison
-    -   Training metrics and visualizations
-    -   Explanations (selection, training process)
-
-
-
-8.  Upload unlabelled dataset and run predictions
-
-9.  **View Prediction Results**:
-    -   Predictions table
-    -   Visualizations (histogram, pie chart)
-    -   Explanation text
-
-
-
-* * * * *
-
-**TECH STACK**
------------------
-
-| Component | Technology |
-| --- | --- |
-| Language | Python |
-| Deep Learning | TensorFlow, Keras |
-| Explainability | SHAP, LIME, Grad-CAM |
-| Tuning | Keras-Tuner |
-| UI | Streamlit |
-| Data | Pandas, NumPy, Scikit-learn |
-| Visualization | Matplotlib, Seaborn |
-
-
-* * * * *
-
-**CURRENT LIMITATIONS**
---------------------------
-
--   Accuracy may vary for very small datasets (< 50 samples)
-
--   Grad-CAM may fail with single-class datasets
-
--   Advanced explainability dashboards not yet integrated
-
--   Hyperparameter search is intentionally shallow for speed
-
--   No ONNX export yet
-
-**Error Handling**
--   Comprehensive validation for all dataset types
--   Clear error messages for incorrect formats
--   Automatic detection and reporting of data quality issues
-
-* * * * *
-
-**FUTURE ENHANCEMENTS**
---------------------------
-
--   Cloud-based training & GPU compute
-
--   Advanced model zoo (Transformers, EfficientNetV2, ViT)
-
--   Interactive SHAP dashboards
-
--   Multi-label + regression support
-
--   ONNX export
-
--   AutoML search space expansion
-
--   Patent exploration for AutoDL architecture
-
-* * * * *
-
-**REFERENCES**
------------------
-
-AutoDL builds upon ideas from:
-
--   AutoML: AutoKeras, Auto-Sklearn, H2O.ai
-
--   XAI Tools: SHAP, LIME, Grad-CAM
-
--   TensorFlow / Keras documentation
-
--   Research papers on XAI & Responsible AI
-
-* * * * *
-
-**LICENSE**
---------------
-
-This project is created for **academic and research purposes only**.\
-© 2025 **Swayam Swaroop Sahu** --- All Rights Reserved.
+See the project review delivered with this change for a prioritized roadmap.

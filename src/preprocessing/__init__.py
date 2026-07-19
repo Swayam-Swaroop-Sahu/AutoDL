@@ -1,0 +1,21 @@
+"""Preprocessing public API with lazy modality imports.
+
+Importing a tabular helper must not require TensorFlow or image dependencies.
+"""
+
+from .common_utils import detect_target_column, handle_missing_values
+
+__all__ = ["TabularPreprocessor", "ImagePreprocessor", "TextPreprocessor", "handle_missing_values", "detect_target_column"]
+
+
+def __getattr__(name):
+    if name == "TabularPreprocessor":
+        from .tabular_preprocessor import TabularPreprocessor
+        return TabularPreprocessor
+    if name == "ImagePreprocessor":
+        from .image_preprocessor import ImagePreprocessor
+        return ImagePreprocessor
+    if name == "TextPreprocessor":
+        from .text_preprocessor import TextPreprocessor
+        return TextPreprocessor
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

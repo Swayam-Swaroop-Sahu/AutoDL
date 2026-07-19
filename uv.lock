@@ -336,7 +336,7 @@ wheels = [
 ]
 
 [[package]]
-name = "explaindl"
+name = "autodl"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

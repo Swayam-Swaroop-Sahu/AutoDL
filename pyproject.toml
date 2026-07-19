@@ -1,7 +1,7 @@
 [project]
-name = "explaindl"
+name = "autodl"
 version = "0.1.0"
-description = "Add your description here"
+description = "Automated classification, validation, prediction, and explainability for non-technical users"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
