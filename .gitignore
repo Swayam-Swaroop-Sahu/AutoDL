@@ -55,3 +55,8 @@ temp/
 # Build
 dist/
 build/
+
+# Agents
+.agents/
+.claude/
+.config/
