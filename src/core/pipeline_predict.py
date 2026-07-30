@@ -27,24 +27,39 @@ def predict_pipeline(model_dir: str, dataset_path: str):
     if not os.path.exists(dataset_path):
         raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
 
-    model_path = os.path.join(model_dir, "model.h5")
+    # BUGFIX Phase 1e item 12: prefer .keras; fall back to .pkl (sklearn) and legacy .h5.
+    keras_path = os.path.join(model_dir, "model.keras")
+    pkl_path = os.path.join(model_dir, "model.pkl")
+    legacy_h5_path = os.path.join(model_dir, "model.h5")
+    if os.path.exists(keras_path):
+        model_path = keras_path
+    elif os.path.exists(pkl_path):
+        model_path = pkl_path
+    elif os.path.exists(legacy_h5_path):
+        model_path = legacy_h5_path
+    else:
+        raise FileNotFoundError(
+            f"No model file found in {model_dir} (looked for model.keras, model.pkl, model.h5). "
+            "Please ensure the model was trained successfully."
+        )
     preproc_path = os.path.join(model_dir, "preprocessor.pkl")
     meta_path = os.path.join(model_dir, "meta.json")
 
     # ---------------------------------------------------------
     # LOAD MODEL + PREPROCESSOR + METADATA
     # ---------------------------------------------------------
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model file not found: {model_path}. Please ensure the model was trained successfully.")
-
     if not os.path.exists(preproc_path):
         raise FileNotFoundError(f"Preprocessor file not found: {preproc_path}. Please ensure the model was trained successfully.")
 
     if not os.path.exists(meta_path):
         raise FileNotFoundError(f"Metadata file not found: {meta_path}. Please ensure the model was trained successfully.")
 
+    # BUGFIX Phase 1e item 12: load .keras or .pkl appropriately.
     try:
-        model = load_model(model_path)
+        if model_path.endswith(".keras") or model_path.endswith(".h5"):
+            model = load_model(model_path)
+        else:
+            model = joblib.load(model_path)
     except Exception as e:
         raise ValueError(f"Could not load model: {str(e)}. The model file may be corrupted.")
 

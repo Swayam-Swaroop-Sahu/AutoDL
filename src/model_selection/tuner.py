@@ -179,10 +179,22 @@ def _build_tunable_text(hp, vocab_size, max_len, num_classes, tuning_config):
 # -----------------------------------------------------------------------------
 
 def hp_to_dict(hp):
+    # BUGFIX Phase 1e item 3: replaced silent bare except with structured logging.
     try:
         return hp.get_config()
-    except Exception:
-        return dict(hp.values)
+    except Exception as exc:
+        from src.utils.logger import get_logger
+        get_logger(__name__).warning(
+            "BUGFIX Phase 1e item 3: hp.get_config() failed (%s); falling back to dict(hp.values).",
+            exc,
+        )
+        try:
+            return dict(hp.values)
+        except Exception as exc2:
+            get_logger(__name__).warning(
+                "BUGFIX Phase 1e item 3: dict(hp.values) also failed (%s); returning empty dict.", exc2,
+            )
+            return {}
 
 
 # -----------------------------------------------------------------------------

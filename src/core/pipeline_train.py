@@ -534,8 +534,15 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
     # ----------------------------------------------------------------------
     # SAVE ARTIFACTS
     # ----------------------------------------------------------------------
-    model_path = os.path.join(model_dir, "model.h5")
-    model.save(model_path)
+    # BUGFIX Phase 1e item 12: use `.keras` for Keras models; sklearn models
+    # go through joblib (no `.save()` method).
+    is_keras_model = hasattr(model, "save") and callable(getattr(model, "save"))
+    if is_keras_model:
+        model_path = os.path.join(model_dir, "model.keras")
+        model.save(model_path)
+    else:
+        model_path = os.path.join(model_dir, "model.pkl")
+        joblib.dump(model, model_path)
 
     preproc_path = os.path.join(model_dir, "preprocessor.pkl")
     joblib.dump(preprocessor, preproc_path)

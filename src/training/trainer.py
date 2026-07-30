@@ -4,6 +4,12 @@ trainer.py
 ----------
 Unified training module for ExplainDL.
 
+BUGFIX Phase 1e item 13: model comparison uses 3-fold stratified CV during
+search; this module's `train_model` then fits the winner on full data with
+a held-out validation split (the validation metrics reported in meta.json
+are honest held-out scores; CV scores live in `search_results`).
+
+
 This module provides:
 - Clean training loop for tabular, image, text data
 - EarlyStopping & ReduceLROnPlateau
