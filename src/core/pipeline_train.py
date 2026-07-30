@@ -20,8 +20,9 @@ from src.preprocessing.image_preprocessor import ImagePreprocessor
 from src.preprocessing.text_preprocessor import TextPreprocessor
 
 from src.training.trainer import train_model
+from src.training.threshold import optimize_threshold, apply_threshold
 from src.explainability.report_generator import generate_train_report
-from src.explainability.report_generator import generate_train_report
+from src.core.circuit_breaker import CircuitBreakerPipeline
 
 
 # ----------------------------------------------------------------------
@@ -205,6 +206,9 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
     model_dir = os.path.join(MODEL_REGISTRY_DIR, model_id)
     os.makedirs(model_dir, exist_ok=True)
 
+    # Initialize circuit breaker (Phase 1d)
+    cb = CircuitBreakerPipeline(run_dir=model_dir, seed=RANDOM_SEED)
+
     preprocessor = None
     model = None
     model_name = None
@@ -214,23 +218,30 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
     selection_explanation_path = None
     training_explanation_path = None
     search_results = None
+    optimal_threshold = None  # Phase 1d: stored for binary only
+    num_classes = None  # tracked for metadata
 
     # =====================================================================
     # TABULAR DATA
     # =====================================================================
     if dataset_type == "tabular":
-        try:
-            df = load_tabular_data(dataset_path)
-        except FileNotFoundError as e:
-            raise FileNotFoundError(str(e))
-        except ValueError as e:
-            raise ValueError(f"Tabular data loading error: {str(e)}")
-        except Exception as e:
-            raise ValueError(f"Unexpected error loading tabular data: {str(e)}. Please check the file format and content.")
+        # Phase 1d: ingest stage under circuit breaker
+        df = cb.stage(
+            "load",
+            lambda: load_tabular_data(dataset_path),
+            timeout_s=120,
+            fallback=lambda: pd.DataFrame(),
+        )
+        if df is None or df.empty:
+            raise ValueError("Tabular data loading produced empty DataFrame.")
 
         # --- Target detection ---
         from src.target_detection import resolve_target
-        resolved, status = resolve_target(df, target_col=target_col)
+        resolved, status = cb.stage(
+            "target_detect",
+            lambda: resolve_target(df, target_col=target_col),
+            timeout_s=60,
+        )
         logger.info("target detection: resolved=%s, status=%s", resolved, status)
 
         if status == "human_required":
@@ -254,20 +265,43 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
             raise ValueError(f"Tabular preprocessing error: {str(e)}")
         except Exception as e:
             raise ValueError(f"Unexpected error during preprocessing: {str(e)}")
-
         num_features = X.shape[1]
         num_classes = len(set(y))
         n_samples = len(X)
+        logger.info("tabular: n=%d, n_features=%d, n_classes=%d", n_samples, num_features, num_classes)
 
         # --- Model search via successive halving ---
         from src.model_selection.search import (
             successive_halving_search, DEFAULT_SCORING,
         )
         from src.model_selection.tabular_candidates import get_tabular_candidates
+        from sklearn.linear_model import LogisticRegression as _LR
+
         candidates = get_tabular_candidates(n_samples)
-        best_cfg, best_score, all_results = successive_halving_search(
-            candidates, X.to_numpy() if hasattr(X, "to_numpy") else X,
-            y, time_budget_sec=600, scoring=DEFAULT_SCORING,
+
+        def _search_callable():
+            Xn = X.to_numpy() if hasattr(X, "to_numpy") else X
+            return successive_halving_search(
+                candidates, Xn, y,
+                time_budget_sec=600, scoring=DEFAULT_SCORING,
+            )
+
+        def _search_fallback():
+            logger.warning("TIMEOUT_FALLBACK: search -> single LogisticRegression baseline")
+            from src.model_selection.search import Candidate
+            lr = Candidate(
+                name="LogReg_Fallback",
+                factory=lambda: _LR(max_iter=500, n_jobs=1, random_state=RANDOM_SEED),
+                description="LogisticRegression fallback (search timed out or failed)",
+                pros="fast", cons="linear only",
+            )
+            return ({"name": lr.name, "factory": lr, "params": ""}, -1.0, [])
+
+        best_cfg, best_score, all_results = cb.stage(
+            "search",
+            _search_callable,
+            timeout_s=600,
+            fallback=_search_fallback,
         )
         search_results = all_results
 
@@ -312,8 +346,31 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         )
 
         # TRAIN (fit the winner on full data again inside train_model)
-        history, metrics = train_model(model, "tabular", (X, y))
+        history, metrics = cb.stage(
+            "train",
+            lambda: train_model(model, "tabular", (X, y)),
+            timeout_s=600,
+            fallback=lambda: ({}, {"accuracy": 0.0, "precision": 0.0, "recall": 0.0, "f1_score": 0.0}),
+        )
         class_names = preprocessor.target_encoder.classes_.tolist()
+
+        # Phase 1d: threshold optimization for binary
+        if num_classes == 2 and hasattr(model, "predict_proba"):
+            try:
+                X_arr = X.to_numpy() if hasattr(X, "to_numpy") else X
+                proba_full = model.predict_proba(X_arr)
+                y_proba_positive = proba_full[:, 1]
+                thr, j, auc = optimize_threshold(
+                    np.asarray(y), np.asarray(y_proba_positive), strategy="youden",
+                )
+                optimal_threshold = float(thr)
+                logger.info(
+                    "Optimal binary threshold=%.4f (Youden J=%.4f, AUC=%.4f) stored in metadata.",
+                    thr, j, auc,
+                )
+            except Exception as exc:
+                logger.warning("threshold optimization skipped: %s", exc)
+                optimal_threshold = None
 
     # =====================================================================
     # IMAGE DATA
@@ -321,7 +378,11 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
     elif dataset_type == "image":
         try:
             extract_dir = os.path.join(model_dir, "images_extracted")
-            extracted = extract_image_dataset(dataset_path, extract_dir)
+            extracted = cb.stage(
+                "load",
+                lambda: extract_image_dataset(dataset_path, extract_dir),
+                timeout_s=120,
+            )
         except FileNotFoundError as e:
             raise FileNotFoundError(str(e))
         except ValueError as e:
@@ -329,9 +390,16 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         except Exception as e:
             raise ValueError(f"Unexpected error loading image dataset: {str(e)}. Please ensure the ZIP file contains valid images in class folders.")
 
-        preprocessor = ImagePreprocessor()
-        train_gen, val_gen = preprocessor.preprocess_for_train(extracted)
-
+        try:
+            ip = ImagePreprocessor()
+            train_gen, val_gen = cb.stage(
+                "preprocess",
+                lambda: ip.preprocess_for_train(extracted),
+                timeout_s=180,
+            )
+            preprocessor = ip
+        except Exception as e:
+            raise ValueError(f"Image preprocessing error: {str(e)}")
         num_classes = train_gen.num_classes
         input_shape = train_gen.image_shape
         n_samples = train_gen.samples
@@ -493,6 +561,10 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         "search_results": search_results,
         "selection_explanation_path": selection_explanation_path,
         "training_explanation_path": training_explanation_path,
+        # Phase 1d: threshold optimization for binary (None for multiclass)
+        "binary_threshold": optimal_threshold,
+        "binary_threshold_strategy": "youden" if optimal_threshold is not None else None,
+        "n_classes": num_classes if 'num_classes' in dir() else None,
     }
 
     with open(os.path.join(model_dir, "meta.json"), "w") as f:

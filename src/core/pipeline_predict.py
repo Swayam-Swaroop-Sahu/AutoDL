@@ -144,7 +144,15 @@ def predict_pipeline(model_dir: str, dataset_path: str):
         preds_proba = model.predict(X, verbose=0)
 
     # BUGFIX Phase 1c: always argmax; softmax output is shape (N, num_classes).
+    # Phase 1d: apply stored binary threshold if available.
     preds = np.argmax(preds_proba, axis=1)
+
+    binary_threshold = meta.get("binary_threshold")
+    if binary_threshold is not None and preds_proba.ndim == 2 and preds_proba.shape[1] == 2:
+        # Phase 1d: override argmax for binary with stored optimized threshold
+        from src.training.threshold import apply_threshold
+        preds = apply_threshold(preds_proba, float(binary_threshold), num_classes=2)
+        logger.info("Applied stored binary threshold=%.4f", float(binary_threshold))
 
     # ---------------------------------------------------------
     # MAP PREDICTION INDEX → CLASS NAME
