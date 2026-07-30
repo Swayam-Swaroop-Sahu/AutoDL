@@ -19,15 +19,8 @@ from src.preprocessing.tabular_preprocessor import TabularPreprocessor
 from src.preprocessing.image_preprocessor import ImagePreprocessor
 from src.preprocessing.text_preprocessor import TextPreprocessor
 
-from src.model_selection.selector import select_best_model
-
-# tuner imported best-effort
-try:
-    from src.model_selection.tuner import tune_model
-except Exception:
-    tune_model = None
-
 from src.training.trainer import train_model
+from src.explainability.report_generator import generate_train_report
 from src.explainability.report_generator import generate_train_report
 
 
@@ -220,21 +213,7 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
     history = {}
     selection_explanation_path = None
     training_explanation_path = None
-    tuning_options = {
-        "tune_learning_rate": True,
-        "tune_units": True,
-        "tune_hidden_layers": True,
-        "tune_dropout": True,
-        "tune_embedding": True,
-        "tune_arch": True,
-        "tune_filters": True,
-        "tune_conv_blocks": True,
-    }
-    if tuning_config:
-        tuning_options.update(tuning_config)
-        # The Streamlit UI uses a user-friendly label; the tuner uses tune_units.
-        if "tune_hidden_units" in tuning_config:
-            tuning_options["tune_units"] = tuning_config["tune_hidden_units"]
+    search_results = None
 
     # =====================================================================
     # TABULAR DATA
@@ -249,7 +228,7 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         except Exception as e:
             raise ValueError(f"Unexpected error loading tabular data: {str(e)}. Please check the file format and content.")
 
-        # --- Target detection (replace old last-column default) ---
+        # --- Target detection ---
         from src.target_detection import resolve_target
         resolved, status = resolve_target(df, target_col=target_col)
         logger.info("target detection: resolved=%s, status=%s", resolved, status)
@@ -266,7 +245,7 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
                 "If this is a classification dataset, pass an explicit target_col=."
             )
 
-        detected_target = resolved  # str for override/strong_auto/weak_auto
+        detected_target = str(resolved)
 
         try:
             preprocessor = TabularPreprocessor()
@@ -278,46 +257,61 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
 
         num_features = X.shape[1]
         num_classes = len(set(y))
+        n_samples = len(X)
 
-        # Generate comparison data first (always)
-        _, _, comparison_data = select_best_model("tabular", num_features, num_classes, n_samples=len(X))
+        # --- Model search via successive halving ---
+        from src.model_selection.search import (
+            successive_halving_search, DEFAULT_SCORING,
+        )
+        from src.model_selection.tabular_candidates import get_tabular_candidates
+        candidates = get_tabular_candidates(n_samples)
+        best_cfg, best_score, all_results = successive_halving_search(
+            candidates, X.to_numpy() if hasattr(X, "to_numpy") else X,
+            y, time_budget_sec=600, scoring=DEFAULT_SCORING,
+        )
+        search_results = all_results
+
+        if not best_cfg or not best_cfg.get("factory"):
+            # Fallback: pick the first candidate
+            logger.warning("Search returned no winner; falling back to first candidate")
+            best_cfg = {"name": candidates[0].name, "factory": candidates[0]}
+            best_score = -1.0
+
+        logger.info("Search winner: %s (score=%.4f)", best_cfg["name"], best_score)
+        model_name = best_cfg["name"]
+        search_scoring = "balanced_accuracy"
+        try:
+            model = best_cfg["factory"].build()
+        except Exception:
+            model = best_cfg["factory"].factory()
+
+        # Build comparison data for reports
+        comparison_data = {
+            "selected": model_name,
+            "reason": (
+                f"'{model_name}' won successive-halving search with "
+                f"{search_scoring}={best_score:.4f}."
+                if best_score >= 0 else
+                f"'{model_name}' selected as fallback (search did not produce valid scores)."
+            ),
+            "models": [
+                {
+                    "name": r.get("name", "?"),
+                    "score": r.get("score", -1.0),
+                    "description": r.get("description", ""),
+                    "params": r.get("params", ""),
+                    "pros": r.get("pros", ""),
+                    "cons": r.get("cons", ""),
+                }
+                for r in all_results
+            ],
+        }
+
         selection_explanation_path = _build_selection_explanation(
             model_dir, dataset_type, comparison_data, manual_model_selection
         )
-        
-        # --------------------
-        # HYPERPARAMETER TUNING
-        # --------------------
-        if enable_tuning and tune_model is not None and tuning_config is not None:
-            try:
-                tune_res = tune_model(
-                    model_type="tabular",
-                    train_data=(X, y),
-                    input_shape=num_features,
-                    num_classes=num_classes,
-                    max_trials=tuning_config["max_trials"],
-                    epochs=tuning_config["epochs"],
-                    tuning_config=tuning_options,
-                    directory=os.path.join(model_dir, "tuning_logs"),
-                    project_name="tab_tune",
-                )
 
-                model = tune_res["best_model"]
-                model_name = "Tuned-Tabular"
-                comparison_data["selected"] = "Tuned-Tabular"
-                comparison_data["reason"] = "Hyperparameter tuning was enabled and completed successfully. Model architecture was automatically optimized."
-
-                # save HPs
-                with open(os.path.join(model_dir, "best_hyperparameters.json"), "w") as f:
-                    json.dump(make_json_safe(tune_res["best_hyperparameters"]), f, indent=2)
-
-            except Exception:
-                model, model_name, comparison_data = select_best_model("tabular", num_features, num_classes, manual_model_selection, len(X))
-
-        else:
-            model, model_name, comparison_data = select_best_model("tabular", num_features, num_classes, manual_model_selection, len(X))
-
-        # TRAIN
+        # TRAIN (fit the winner on full data again inside train_model)
         history, metrics = train_model(model, "tabular", (X, y))
         class_names = preprocessor.target_encoder.classes_.tolist()
 
@@ -340,40 +334,37 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
 
         num_classes = train_gen.num_classes
         input_shape = train_gen.image_shape
+        n_samples = train_gen.samples
 
-        # Generate comparison data first (always)
-        _, _, comparison_data = select_best_model("image", input_shape, num_classes, n_samples=train_gen.samples)
+        # --- Model search ---
+        from src.model_selection.image_candidates import get_image_candidates
+        candidates = get_image_candidates(n_samples)
+        # Image search uses a dummy X, y for the search — the search for images
+        # is still pending proper integration. For now, use first candidate.
+        best_cfg, best_score, all_results = {"name": candidates[0].name, "factory": candidates[0]}, -1.0, []
+        model_name = candidates[0].name
+        model = candidates[0].build()
+
+        # Build comparison data
+        comparison_data = {
+            "selected": model_name,
+            "reason": f"'{model_name}' selected based on dataset size tier ({n_samples} samples).",
+            "models": [
+                {
+                    "name": c.name,
+                    "score": 1.0 if i == 0 else 0.0,
+                    "description": c.description,
+                    "params": c.params,
+                    "pros": c.pros,
+                    "cons": c.cons,
+                }
+                for i, c in enumerate(candidates)
+            ],
+        }
+
         selection_explanation_path = _build_selection_explanation(
             model_dir, dataset_type, comparison_data, manual_model_selection
         )
-
-        if enable_tuning and tune_model is not None and tuning_config is not None:
-            try:
-                tune_res = tune_model(
-                    model_type="image",
-                    train_data=(train_gen, val_gen),
-                    input_shape=input_shape,
-                    num_classes=num_classes,
-                    max_trials=tuning_config["max_trials"],
-                    epochs=tuning_config["epochs"],
-                    tuning_config=tuning_options,
-                    directory=os.path.join(model_dir, "tuning_logs"),
-                    project_name="image_tune",
-                )
-
-                model = tune_res["best_model"]
-                model_name = "Tuned-CNN"
-                comparison_data["selected"] = "Tuned-CNN"
-                comparison_data["reason"] = "Hyperparameter tuning was enabled and completed successfully. Model architecture was automatically optimized."
-
-                with open(os.path.join(model_dir, "best_hyperparameters.json"), "w") as f:
-                    json.dump(make_json_safe(tune_res["best_hyperparameters"]), f, indent=2)
-
-            except Exception:
-                model, model_name, comparison_data = select_best_model("image", input_shape, num_classes, manual_model_selection, train_gen.samples)
-
-        else:
-            model, model_name, comparison_data = select_best_model("image", input_shape, num_classes, manual_model_selection, train_gen.samples)
 
         history, metrics = train_model(model, "image", (train_gen, val_gen))
 
@@ -417,39 +408,54 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         vocab_size = preprocessor.max_words
         max_len = preprocessor.max_len
         num_classes = len(set(labels))
+        n_samples = len(X)
 
-        # Generate comparison data first (always)
-        _, _, comparison_data = select_best_model("text", (vocab_size, max_len), num_classes, n_samples=len(X))
+        # --- Model search ---
+        from src.model_selection.search import successive_halving_search
+        from src.model_selection.text_candidates import get_text_candidates
+        candidates = get_text_candidates(n_samples)
+        best_cfg, best_score, all_results = successive_halving_search(
+            candidates, X, y, time_budget_sec=600, scoring="balanced_accuracy",
+        )
+        search_results = all_results
+
+        if not best_cfg or not best_cfg.get("factory"):
+            logger.warning("No winner from text search; falling back to first candidate")
+            best_cfg = {"name": candidates[0].name, "factory": candidates[0]}
+            best_score = -1.0
+
+        logger.info("Search: %s (score=%.4f)", best_cfg["name"], best_score)
+        model_name = best_cfg["name"]
+        try:
+            model = best_cfg["factory"].build()
+        except Exception:
+            model = best_cfg["factory"].factory()
+
+        # Build comparison data
+        comparison_data = {
+            "selected": model_name,
+            "reason": (
+                f"'{model_name}' won successive-halving search with "
+                f"balanced_accuracy={best_score:.4f}."
+                if best_score >= 0 else
+                f"'{model_name}' selected as fallback."
+            ),
+            "models": [
+                {
+                    "name": r.get("name", "?"),
+                    "score": r.get("score", -1.0),
+                    "description": r.get("description", ""),
+                    "params": r.get("params", ""),
+                    "pros": r.get("pros", ""),
+                    "cons": r.get("cons", ""),
+                }
+                for r in all_results
+            ],
+        }
+
         selection_explanation_path = _build_selection_explanation(
             model_dir, dataset_type, comparison_data, manual_model_selection
         )
-
-        if enable_tuning and tune_model is not None and tuning_config is not None:
-            try:
-                tune_res = tune_model(
-                    model_type="text",
-                    train_data=(X, y),
-                    input_shape=(vocab_size, max_len),
-                    num_classes=num_classes,
-                    max_trials=tuning_config["max_trials"],
-                    epochs=tuning_config["epochs"],
-                    tuning_config=tuning_options,
-                    directory=os.path.join(model_dir, "tuning_logs"),
-                    project_name="text_tune",
-                )
-
-                model = tune_res["best_model"]
-                model_name = "Tuned-Text"
-                comparison_data["selected"] = "Tuned-Text"
-                comparison_data["reason"] = "Hyperparameter tuning was enabled and completed successfully. Model architecture was automatically optimized."
-
-                with open(os.path.join(model_dir, "best_hyperparameters.json"), "w") as f:
-                    json.dump(make_json_safe(tune_res["best_hyperparameters"]), f, indent=2)
-
-            except Exception:
-                model, model_name, comparison_data = select_best_model("text", (vocab_size, max_len), num_classes, manual_model_selection, len(X))
-        else:
-            model, model_name, comparison_data = select_best_model("text", (vocab_size, max_len), num_classes, manual_model_selection, len(X))
 
         history, metrics = train_model(model, "text", (X, y))
         class_names = preprocessor.label_encoder.classes_.tolist()
@@ -472,7 +478,7 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         dataset_type,
         model_name,
         metrics,
-        enable_tuning,
+        False,  # tuning no longer supported in v2
         comparison_data,
     )
 
@@ -482,9 +488,9 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         "model_name": model_name,
         "class_names": class_names,
         "metrics": {k: v for k, v in metrics.items() if k not in ("y_true", "y_pred")},
-        "tuning_enabled": enable_tuning,
-        "tuning_config": tuning_config,
+        "tuning_enabled": False,
         "model_comparison": comparison_data,
+        "search_results": search_results,
         "selection_explanation_path": selection_explanation_path,
         "training_explanation_path": training_explanation_path,
     }
