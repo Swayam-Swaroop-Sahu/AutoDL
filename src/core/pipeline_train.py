@@ -168,7 +168,7 @@ def make_json_safe(obj):
 # ----------------------------------------------------------------------
 # MAIN TRAIN PIPELINE
 # ----------------------------------------------------------------------
-def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config=None, manual_model_selection: str = None):
+def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config=None, manual_model_selection: str = None, target_col: str = None):
     """
     Full training pipeline including:
     - preprocessing
@@ -249,9 +249,28 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         except Exception as e:
             raise ValueError(f"Unexpected error loading tabular data: {str(e)}. Please check the file format and content.")
 
+        # --- Target detection (replace old last-column default) ---
+        from src.target_detection import resolve_target
+        resolved, status = resolve_target(df, target_col=target_col)
+        logger.info("target detection: resolved=%s, status=%s", resolved, status)
+
+        if status == "human_required":
+            raise ValueError(
+                f"Target column is ambiguous. Ranked candidates: {resolved}. "
+                f"Please pass an explicit target_col= to disambiguate."
+            )
+        if status == "not_classification":
+            raise ValueError(
+                "No classification target detected in this dataset. "
+                "Every column scored too low to be a class label. "
+                "If this is a classification dataset, pass an explicit target_col=."
+            )
+
+        detected_target = resolved  # str for override/strong_auto/weak_auto
+
         try:
             preprocessor = TabularPreprocessor()
-            X, y = preprocessor.fit_transform(df)
+            X, y = preprocessor.fit_transform(df, target_col=detected_target)
         except ValueError as e:
             raise ValueError(f"Tabular preprocessing error: {str(e)}")
         except Exception as e:
