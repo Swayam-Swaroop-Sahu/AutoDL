@@ -21,8 +21,7 @@ from .save_utils import (
     get_model_paths,
 )
 
-from .logger import LOGGER
-from .random_seed import set_global_seed
+from .logger import LOGGER, get_logger
 
 __all__ = [
     "ensure_dir",
@@ -41,5 +40,5 @@ __all__ = [
     "load_metadata",
     "get_model_paths",
     "LOGGER",
-    "set_global_seed",
+    "get_logger",
 ]

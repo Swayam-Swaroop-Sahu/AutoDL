@@ -26,7 +26,7 @@ def detect_dataset_type(file_path: str) -> str:
     # ----------------------------------------------------
     if ext in [".csv", ".xlsx"]:
         try:
-            df = pd.read_csv(file_path) if ext == ".csv" else pd.read_excel(file_path)
+            df = pd.read_csv(file_path, on_bad_lines="warn") if ext == ".csv" else pd.read_excel(file_path)
 
             # If 70%+ columns are text → this is actually a TEXT dataset
             object_cols = df.select_dtypes(include="object").shape[1]

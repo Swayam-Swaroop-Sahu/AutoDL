@@ -6,7 +6,10 @@ import uuid
 import joblib
 import numpy as np
 
-from src.core.config import MODEL_REGISTRY_DIR
+from src.core.config import MODEL_REGISTRY_DIR, RANDOM_SEED, set_global_seed
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 from src.data.detect_type import detect_dataset_type
 from src.data.tabular_loader import load_tabular_data
 from src.data.image_loader import extract_image_dataset
@@ -63,13 +66,13 @@ def _build_selection_explanation(model_dir, dataset_type, comparison_data, manua
         lines.append(f"- {m.get('name')}: score={m.get('score'):.4f}")
         desc = m.get("description")
         if desc:
-            lines.append(f"  • {desc}")
+            lines.append(f"  - {desc}")
         pros = m.get("pros")
         cons = m.get("cons")
         if pros:
-            lines.append(f"  • Pros: {pros}")
+            lines.append(f"  - Pros: {pros}")
         if cons:
-            lines.append(f"  • Cons: {cons}")
+            lines.append(f"  - Cons: {cons}")
     lines.append("")
 
     lines.append("How to interpret the score:")
@@ -183,6 +186,8 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
             "tune_dropout": False
         }
     """
+    set_global_seed(RANDOM_SEED)
+    logger.info("train_pipeline start — dataset=%s, tuning=%s", dataset_path, enable_tuning)
 
     if not os.path.exists(dataset_path):
         raise FileNotFoundError(f"Dataset not found: {dataset_path}")
@@ -484,9 +489,11 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
     except Exception as e:
         # Log error but don't fail the pipeline
         import traceback
-        print(f"Warning: Could not generate enhanced PDF report: {e}")
-        traceback.print_exc()
+        logger.warning("Could not generate enhanced PDF report: %s", e)
+        logger.debug(traceback.format_exc())
         report_path = None
+
+    logger.info("train_pipeline done — model_id=%s, model_name=%s", model_id, model_name)
 
     # RETURN
     return {

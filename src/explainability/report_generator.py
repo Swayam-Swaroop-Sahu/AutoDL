@@ -141,7 +141,7 @@ def generate_train_report(history, metrics, model_name, output_dir, model_compar
     # Title Page
     pdf.add_page()
     pdf.set_font("Arial", "B", 18)
-    pdf.cell(0, 15, "ExplainDL — Comprehensive Training Report", ln=True, align="C")
+    pdf.cell(0, 15, "ExplainDL - Comprehensive Training Report", ln=True, align="C")
     pdf.ln(8)
     pdf.set_font("Arial", "", 12)
     pdf.cell(0, 8, f"Model: {model_name}", ln=True, align="C")
@@ -171,7 +171,7 @@ def generate_train_report(history, metrics, model_name, output_dir, model_compar
             for model_info in model_comparison["models"]:
                 pdf.ln(3)
                 pdf.set_font("Arial", "B", 10)
-                pdf.cell(0, 6, f"• {model_info['name']} (Score: {model_info['score']:.4f})", ln=True)
+                pdf.cell(0, 6, f"- {model_info['name']} (Score: {model_info['score']:.4f})", ln=True)
                 pdf.set_font("Arial", "", 9)
                 pdf.multi_cell(0, 5, f"  {model_info['description']}")
                 pdf.multi_cell(0, 5, f"  Parameters: {model_info['params']}")
@@ -259,23 +259,13 @@ def generate_train_report(history, metrics, model_name, output_dir, model_compar
 # =====================================================================
 # PREDICTION REPORT
 # =====================================================================
-def generate_predict_report(predictions, class_names, output_dir,dataset_type):
-    # Load dataset_type from the trained model’s meta.json
-    meta_path = os.path.join(output_dir, "..", "meta.json")
-    dataset_type_from_meta = None
+def generate_predict_report(predictions, class_names, output_dir, dataset_type,
+                            model_name="Unknown"):
+    """Generate a prediction report PDF + explanation text.
 
-    try:
-        with open(meta_path, "r") as m:
-            meta = json.load(m)
-            dataset_type_from_meta = meta.get("dataset_type")
-    except:
-        dataset_type_from_meta = None
-
-    # Override dataset_type if available
-    if dataset_type_from_meta:
-        dataset_type = dataset_type_from_meta
-
-
+    `output_dir` is the model_dir (absolute path) — no relative-path traversal.
+    `dataset_type` is passed directly from metadata by the caller.
+    """
     os.makedirs(output_dir, exist_ok=True)
 
     preds = np.array(predictions)
@@ -416,7 +406,7 @@ def generate_predict_report(predictions, class_names, output_dir,dataset_type):
 
     pdf.add_page()
     pdf.set_font("Arial", "B", 14)
-    pdf.cell(0, 8, "ExplainDL — Prediction Report", ln=True, align="C")
+    pdf.cell(0, 8, "ExplainDL - Prediction Report", ln=True, align="C")
     pdf.ln(6)
 
     # Histogram

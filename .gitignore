@@ -3,8 +3,16 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Model artifacts
+*.h5
+*.keras
+*.onnx
 *.pkl
-*.pickle
+*.joblib
+
+# Model registry index
+model_index.json
 
 # Virtual environment
 venv/
@@ -16,18 +24,23 @@ env/
 Thumbs.db
 .vscode/
 .idea/
-.cursor/
 
 # Streamlit artifacts
 .streamlit/
 
 # Model registry
 model_registry/
-ExplainDL_Registry/
 
 # Reports
-reports/*.pdf
-*.docx
+generated_reports/
+reports/
+
+# Uploaded datasets
+uploaded_datasets/
+uploads/
+
+# Runs
+runs/
 
 # Temp files
 tmp/
@@ -36,18 +49,8 @@ temp/
 *.log
 *.out
 
-# Data files
-*.csv
-*.xlsx
-*.xls
-*.txt
-*.zip
-*.json
-
-# Images
-*.png
-*.jpg
-*.jpeg
+# Docker build
+docker_build/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -55,6 +58,9 @@ temp/
 # Build
 dist/
 build/
+
+# Testing
+.pytest_cache/
 
 # Agents
 .agents/

@@ -46,7 +46,7 @@ def load_tabular_data(file_path: str, require_target: bool = True) -> pd.DataFra
             
             for encoding in encodings:
                 try:
-                    df = pd.read_csv(file_path, encoding=encoding)
+                    df = pd.read_csv(file_path, encoding=encoding, on_bad_lines="warn")
                     break
                 except UnicodeDecodeError as e:
                     last_error = e

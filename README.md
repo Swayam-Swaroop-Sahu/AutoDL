@@ -1,6 +1,16 @@
-# AutoDL
+# AutoDL — Phase 0: Hygiene
 
 AutoDL is an MVP for non-technical users who need to turn a labelled dataset into a reproducible classification model, a held-out validation report, and batch predictions. It currently supports tabular, image, and text classification.
+
+## Phase 0 changes
+
+- Removed dead/duplicate files (see commit details)
+- Consolidated all config constants into `src/core/config.py`
+- Added `set_global_seed()` for reproducibility (random, numpy, tensorflow)
+- Wired structured logging via `src/utils/logger.py` across `app.py`, `pipeline_train.py`, `pipeline_predict.py`
+- Fixed `pd.read_csv` calls to use `on_bad_lines="warn"`
+- Fixed prediction report relative-path bug (metadata dict passed directly)
+- Updated `.gitignore` to cover all generated artifacts
 
 ## What it does today
 

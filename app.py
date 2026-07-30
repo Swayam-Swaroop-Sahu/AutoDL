@@ -10,6 +10,9 @@ from src.core.pipeline_train import train_pipeline
 from src.core.pipeline_predict import predict_pipeline
 from src.registry import register_model
 from src.data.detect_type import detect_dataset_type
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 # -----------------------------------------------------------
 # STREAMLIT CONFIG
@@ -52,7 +55,7 @@ train_file = st.file_uploader("Upload LABELLED dataset (CSV, XLSX, TXT, ZIP)", t
 if train_file and train_file.name.lower().endswith((".csv", ".xlsx")):
     try:
         train_file.seek(0)
-        df_preview = pd.read_csv(train_file, nrows=5) if train_file.name.lower().endswith(".csv") else pd.read_excel(train_file, nrows=5)
+        df_preview = pd.read_csv(train_file, nrows=5, on_bad_lines="warn") if train_file.name.lower().endswith(".csv") else pd.read_excel(train_file, nrows=5)
         st.subheader("Preview (first 5 rows)")
         st.dataframe(df_preview)
     except Exception as e:
