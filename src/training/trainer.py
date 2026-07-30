@@ -111,15 +111,16 @@ def train_model(
 
         history = history_obj.history
 
-        # VALIDATION LABELS
-        y_true = val_gen.classes
+        # VALIDATION LABELS (one-hot from generator) → integer class indices
+        y_true_onehot = val_gen.classes
+        # BUGFIX Phase 1c: val_gen.classes is already integer indices for categorical.
+        # (image generator with class_mode="categorical" returns indices via .classes.)
+        y_true = np.asarray(y_true_onehot, dtype=int)
 
         # PREDICTIONS
         y_pred_probs = model.predict(val_gen, verbose=0)
-        if y_pred_probs.ndim == 2 and y_pred_probs.shape[1] == 1:
-            y_pred = (y_pred_probs > 0.5).astype(int).flatten()
-        else:
-            y_pred = np.argmax(y_pred_probs, axis=1)
+        # BUGFIX Phase 1c: always argmax; softmax output is shape (N, num_classes).
+        y_pred = np.argmax(y_pred_probs, axis=1)
 
     # ------------------------------------
     # TABULAR & TEXT TRAINING (arrays)
@@ -162,13 +163,10 @@ def train_model(
         history = history_obj.history
 
         y_pred_probs = model.predict(X_val, verbose=0)
-        
-        # Convert to class indices
-        if y_pred_probs.ndim == 2 and y_pred_probs.shape[1] > 1:
-            y_pred = np.argmax(y_pred_probs, axis=1)
-        else:
-            y_pred = (y_pred_probs > 0.5).astype(int).flatten()
-        
+
+        # BUGFIX Phase 1c: always argmax; softmax output is shape (N, num_classes).
+        y_pred = np.argmax(y_pred_probs, axis=1)
+
         y_true = y_val
 
     # ------------------------------------

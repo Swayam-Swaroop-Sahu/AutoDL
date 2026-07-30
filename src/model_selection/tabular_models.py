@@ -1,9 +1,15 @@
 # src/model_selection/tabular_models.py
 """
-Candidate tabular neural architectures.
-These are lightweight MLPs intended for quick evaluation and training.
-They are compiled with a loss compatible with integer labels (sparse categorical)
-when multiclass, and binary_crossentropy for binary classification.
+Candidate tabular neural architectures (Phase 1c — unified multiclass).
+
+All MLPs use a single code path:
+  - final Dense(units=num_classes, activation="softmax")
+  - loss="sparse_categorical_crossentropy"
+  - Integer labels (via LabelEncoder)
+  - Decoded via argmax(predict_proba, axis=1)
+
+No binary-vs-multiclass branches remain — predict_proba is always
+shape (N, num_classes) and we always argmax to decode.
 """
 
 from typing import Union
@@ -11,28 +17,15 @@ from tensorflow.keras import models, layers, optimizers
 
 
 def _finalize(model: models.Model, num_classes: int):
-    """
-    Adds the final classification head (if not already added) and compiles.
-    We use:
-      - binary_crossentropy + sigmoid for binary (num_classes == 2)
-      - sparse_categorical_crossentropy + softmax for multiclass
-    The trainer passes integer labels, so sparse loss is appropriate.
-    """
-    if num_classes == 2:
-        # Ensure single logit output for binary classification
-        model.add(layers.Dense(1, activation="sigmoid"))
-        model.compile(
-            optimizer=optimizers.Adam(1e-3),
-            loss="binary_crossentropy",
-            metrics=["accuracy"],
-        )
-    else:
-        model.add(layers.Dense(num_classes, activation="softmax"))
-        model.compile(
-            optimizer=optimizers.Adam(1e-3),
-            loss="sparse_categorical_crossentropy",
-            metrics=["accuracy"],
-        )
+    """Add a unified softmax head and compile with sparse_categorical_crossentropy."""
+    # BUGFIX Phase 1c: removed `if num_classes == 2` branch.
+    # Always softmax + sparse_categorical_crossentropy.
+    model.add(layers.Dense(num_classes, activation="softmax"))
+    model.compile(
+        optimizer=optimizers.Adam(1e-3),
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"],
+    )
     return model
 
 

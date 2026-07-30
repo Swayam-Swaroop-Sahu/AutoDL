@@ -50,15 +50,15 @@ class ImagePreprocessor:
         temp_gen = self.train_datagen.flow_from_directory(
             folder_path,
             target_size=self.target_size,
-            class_mode="categorical",   # temporary
+            class_mode="categorical",   # always categorical for unified path
             subset="training",
             batch_size=batch_size,
             shuffle=True
         )
         num_classes = temp_gen.num_classes
 
-        # FIX: dynamic class mode selection
-        class_mode = "binary" if num_classes == 2 else "categorical"
+        # BUGFIX Phase 1c: removed `if num_classes == 2` branch. Always categorical.
+        class_mode = "categorical"
 
         # REAL generators
         train_gen = self.train_datagen.flow_from_directory(

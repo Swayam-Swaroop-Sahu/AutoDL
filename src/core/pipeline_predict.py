@@ -143,17 +143,8 @@ def predict_pipeline(model_dir: str, dataset_path: str):
     else:
         preds_proba = model.predict(X, verbose=0)
 
-    # Binary classification → sigmoid output
-    if len(preds_proba.shape) == 2 and preds_proba.shape[1] == 1:
-        preds = (preds_proba > 0.5).astype(int).flatten()
-
-    # Multi-class classification → softmax output
-    elif len(preds_proba.shape) == 2 and preds_proba.shape[1] > 1:
-        preds = np.argmax(preds_proba, axis=1)
-
-    # Regression fallback
-    else:
-        preds = preds_proba.flatten()
+    # BUGFIX Phase 1c: always argmax; softmax output is shape (N, num_classes).
+    preds = np.argmax(preds_proba, axis=1)
 
     # ---------------------------------------------------------
     # MAP PREDICTION INDEX → CLASS NAME

@@ -55,12 +55,9 @@ def _build_tunable_mlp(hp, input_shape, num_classes, tuning_config):
                 model.add(layers.Dropout(drop))
 
     # Output layer
-    if num_classes == 2:
-        loss = "binary_crossentropy"
-        model.add(layers.Dense(1, activation="sigmoid"))
-    else:
-        loss = "sparse_categorical_crossentropy"
-        model.add(layers.Dense(num_classes, activation="softmax"))
+    # BUGFIX Phase 1c: removed `if num_classes == 2` branch.
+    loss = "sparse_categorical_crossentropy"
+    model.add(layers.Dense(num_classes, activation="softmax"))
 
     # Learning rate
     lr = (
@@ -110,12 +107,9 @@ def _build_tunable_cnn(hp, input_shape, num_classes, tuning_config):
     x = layers.Dense(dense_units, activation="relu")(x)
 
     # Output
-    if num_classes == 2:
-        loss = "binary_crossentropy"
-        out = layers.Dense(1, activation="sigmoid")(x)
-    else:
-        loss = "sparse_categorical_crossentropy"
-        out = layers.Dense(num_classes, activation="softmax")(x)
+    # BUGFIX Phase 1c: removed `if num_classes == 2` branch.
+    loss = "sparse_categorical_crossentropy"
+    out = layers.Dense(num_classes, activation="softmax")(x)
 
     lr = (
         hp.Float("lr", 1e-4, 1e-2, sampling="log")
@@ -164,12 +158,9 @@ def _build_tunable_text(hp, vocab_size, max_len, num_classes, tuning_config):
     x = layers.Dense(dense_units, activation="relu")(x)
 
     # Output
-    if num_classes == 2:
-        out = layers.Dense(1, activation="sigmoid")(x)
-        loss = "binary_crossentropy"
-    else:
-        out = layers.Dense(num_classes, activation="softmax")(x)
-        loss = "sparse_categorical_crossentropy"
+    # BUGFIX Phase 1c: removed `if num_classes == 2` branch.
+    out = layers.Dense(num_classes, activation="softmax")(x)
+    loss = "sparse_categorical_crossentropy"
 
     # Learning rate
     lr = (
