@@ -6,6 +6,8 @@ import uuid
 import joblib
 import numpy as np
 from tensorflow.keras.models import load_model
+from sklearn.base import BaseEstimator
+from sklearn.pipeline import Pipeline
 
 from src.core.exceptions import AutoDLInputError
 from src.core.validation import validate_file_exists, validate_non_empty, validate_prediction_columns
@@ -17,6 +19,17 @@ from src.explainability.report_generator import generate_predict_report
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def _is_sklearn_model(model) -> bool:
+    """Return True if `model` is an sklearn-compatible estimator/Pipeline."""
+    if model is None:
+        return False
+    if isinstance(model, Pipeline):
+        return True
+    if isinstance(model, BaseEstimator):
+        return True
+    return False
 
 
 def predict_pipeline(model_dir: str, dataset_path: str):
@@ -185,10 +198,26 @@ def predict_pipeline(model_dir: str, dataset_path: str):
     # PREDICT (with batching for large datasets)
     # ---------------------------------------------------------
     batch_size = 32
-    if X.shape[0] > batch_size:
-        preds_proba = model.predict(X, batch_size=batch_size, verbose=0)
+    is_sklearn = _is_sklearn_model(model)
+
+    if is_sklearn:
+        # sklearn path: simple .predict() or .predict_proba()
+        try:
+            preds_proba = model.predict_proba(X)
+        except AttributeError:
+            # Some classifiers don't have predict_proba (e.g., LinearSVC without calibration)
+            # Fall back to predict and create pseudo-probabilities
+            preds = model.predict(X)
+            # Create one-hot encoded pseudo-probabilities
+            n_classes = len(class_names) if class_names else max(preds) + 1
+            preds_proba = np.zeros((len(preds), n_classes))
+            preds_proba[np.arange(len(preds)), preds] = 1.0
     else:
-        preds_proba = model.predict(X, verbose=0)
+        # Keras path: supports batch_size and verbose
+        if X.shape[0] > batch_size:
+            preds_proba = model.predict(X, batch_size=batch_size, verbose=0)
+        else:
+            preds_proba = model.predict(X, verbose=0)
 
     # BUGFIX Phase 1c: always argmax; softmax output is shape (N, num_classes).
     # Phase 1d: apply stored binary threshold if available.
