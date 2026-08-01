@@ -28,10 +28,12 @@ def detect_dataset_type(file_path: str) -> str:
         try:
             df = pd.read_csv(file_path, on_bad_lines="warn") if ext == ".csv" else pd.read_excel(file_path)
 
-            # If 70%+ columns are text → this is actually a TEXT dataset
-            object_cols = df.select_dtypes(include="object").shape[1]
-            if object_cols > 0.7 * df.shape[1]:
-                return "text"
+            # If exactly 2 columns and both are text-like → likely a text dataset
+            # (label + text format). Otherwise default to tabular.
+            if df.shape[1] == 2:
+                object_cols = df.select_dtypes(include="object").shape[1]
+                if object_cols == 2:
+                    return "text"
 
             return "tabular"
 

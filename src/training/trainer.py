@@ -29,8 +29,27 @@ import numpy as np
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.model_selection import train_test_split
+from sklearn.base import BaseEstimator
+from sklearn.pipeline import Pipeline
 
 from src.training.metrics import compute_metrics
+
+
+def _is_sklearn_model(model) -> bool:
+    """Return True if `model` is an sklearn-compatible estimator/Pipeline.
+
+    Keras models have a `.fit()` that accepts `validation_data`; sklearn
+    estimators (including Pipelines) do not.  Treating them the same
+    causes the sklearn Pipeline to crash with
+    'Pipeline.fit does not accept the validation_data parameter'.
+    """
+    if model is None:
+        return False
+    if isinstance(model, Pipeline):
+        return True
+    if isinstance(model, BaseEstimator):
+        return True
+    return False
 
 
 def compute_class_weights(y):
@@ -155,21 +174,34 @@ def train_model(
             if w is not None:
                 class_weights = w
 
-        history_obj = model.fit(
-            X_train,
-            y_train,
-            validation_data=(X_val, y_val),
-            epochs=epochs,
-            batch_size=batch_size,
-            callbacks=callbacks,
-            class_weight=class_weights,
-            verbose=1
-        )
+        # BUGFIX: sklearn estimators (Pipeline, LogReg, etc.) do NOT accept
+        # `validation_data` or `class_weight` as a dict — only Keras models do.
+        # Detect model type and call .fit() accordingly.
+        is_sklearn = _is_sklearn_model(model)
 
-        history = history_obj.history
+        if is_sklearn:
+            # sklearn path: simple .fit(X_train, y_train) + .predict(X_val)
+            history_obj = model.fit(X_train, y_train)
+            history = {}  # sklearn models have no per-epoch history
+        else:
+            # Keras path: full training loop with validation + callbacks
+            history_obj = model.fit(
+                X_train,
+                y_train,
+                validation_data=(X_val, y_val),
+                epochs=epochs,
+                batch_size=batch_size,
+                callbacks=callbacks,
+                class_weight=class_weights,
+                verbose=1
+            )
+            history = history_obj.history
 
-        y_pred_probs = model.predict(X_val, verbose=0)
-
+        y_pred_probs = model.predict(X_val, verbose=0) if not is_sklearn else model.predict_proba(X_val)
+        # If predict_proba returned 1D (some binary cases), wrap to 2D for argmax.
+        y_pred_probs = np.asarray(y_pred_probs)
+        if y_pred_probs.ndim == 1:
+            y_pred_probs = np.column_stack([1 - y_pred_probs, y_pred_probs])
         # BUGFIX Phase 1c: always argmax; softmax output is shape (N, num_classes).
         y_pred = np.argmax(y_pred_probs, axis=1)
 
