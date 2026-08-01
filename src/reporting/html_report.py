@@ -267,6 +267,54 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </html>"""
 
 
+def _build_confusion_matrix_fig(
+    confusion_matrix: List[List[float]], class_names: Optional[List[str]] = None,
+) -> go.Figure:
+    """Build a Plotly annotated heatmap Figure for the confusion matrix.
+    Returns a go.Figure object suitable for st.plotly_chart().
+    """
+    n = len(confusion_matrix)
+    labels = class_names if class_names and len(class_names) == n else [str(i) for i in range(n)]
+
+    # Truncate long labels for display
+    display_labels = [(lbl[:18] + "…") if len(lbl) > 20 else lbl for lbl in labels]
+
+    # Calculate annotations (values inside cells)
+    annotations = []
+    for i, row in enumerate(confusion_matrix):
+        for j, val in enumerate(row):
+            annotations.append(dict(
+                x=display_labels[j], y=display_labels[i],
+                text=str(val),
+                showarrow=False,
+                font=dict(
+                    color="white" if val > max(max(r) for r in confusion_matrix) / 2 else "black",
+                    size=13,
+                ),
+            ))
+
+    fig = go.Figure(data=go.Heatmap(
+        z=confusion_matrix,
+        x=display_labels,
+        y=display_labels,
+        colorscale="Blues",
+        showscale=True,
+        hoverongaps=False,
+        hovertemplate="Actual: %{y}<br>Predicted: %{x}<br>Count: %{z}<extra></extra>",
+    ))
+    fig.update_layout(
+        title=dict(text="Confusion Matrix", font=dict(size=16)),
+        xaxis_title="Predicted Label",
+        yaxis_title="True Label",
+        width=550,
+        height=520,
+        margin=dict(l=60, r=30, t=50, b=80),
+        xaxis=dict(tickangle=-30 if max(len(l) for l in display_labels) > 10 else 0),
+        annotations=annotations,
+    )
+    return fig
+
+
 def _build_confusion_matrix_plot(
     confusion_matrix: List[List[float]], class_names: Optional[List[str]] = None,
 ) -> str:

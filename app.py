@@ -45,6 +45,7 @@ from src.core.pipeline_predict import predict_pipeline
 from src.registry import register_model
 from src.target_detection import rank_target_candidates
 from src.data.detect_type import detect_dataset_type
+from src.reporting.html_report import _build_confusion_matrix_fig
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
