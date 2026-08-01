@@ -5,8 +5,14 @@ import json
 import uuid
 import joblib
 import numpy as np
+import pandas as pd
 
 from src.core.config import MODEL_REGISTRY_DIR, RANDOM_SEED, set_global_seed
+from src.core.exceptions import AutoDLInputError, AutoDLTargetAmbiguousError
+from src.core.validation import (
+    validate_file_exists, validate_non_empty, validate_min_rows,
+    validate_target, validate_no_all_nan,
+)
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -186,19 +192,27 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
     if not os.path.exists(dataset_path):
         raise FileNotFoundError(f"Dataset not found: {dataset_path}")
 
+    # ---- File-level validation ----
+    validate_file_exists(dataset_path)
+
     # Detect dataset type with error handling
     try:
         dataset_type = detect_dataset_type(dataset_path)
     except Exception as e:
-        raise ValueError(f"Could not detect dataset type: {str(e)}. Please ensure the file is in a supported format (.csv, .xlsx, .txt, or .zip).")
+        raise AutoDLInputError(
+            f"Could not detect dataset type: {str(e)}. "
+            "Why: the file extension or internal structure is not recognized. "
+            "What to do: use a supported format (.csv, .xlsx, .txt for text, .zip for images)."
+        )
 
     if dataset_type == "unknown":
-        raise ValueError(
-            f"Could not determine dataset type from file: {dataset_path}. "
-            "Supported formats:\n"
-            "- Tabular: .csv, .xlsx\n"
-            "- Image: .zip (containing image files in class folders)\n"
-            "- Text: .txt (format: label<TAB>text or label,text per line)"
+        raise AutoDLInputError(
+            f"Could not determine dataset type from file: '{os.path.basename(dataset_path)}'. "
+            "Why: the file content does not match any supported format pattern. "
+            "What to do: supported formats are:\n"
+            "  - Tabular: .csv, .xlsx\n"
+            "  - Image: .zip (class folders containing images)\n"
+            "  - Text: .txt (label<TAB>text or label,text per line)"
         )
 
     # Create model directory
@@ -233,38 +247,61 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
             fallback=lambda: pd.DataFrame(),
         )
         if df is None or df.empty:
-            raise ValueError("Tabular data loading produced empty DataFrame.")
+            raise AutoDLInputError(
+                "Tabular data loading produced an empty DataFrame. "
+                "Why: the file may contain only a header row or be blank. "
+                "What to do: add at least 10 rows of labelled data and re-upload."
+            )
 
-        # --- Target detection ---
-        from src.target_detection import resolve_target
-        resolved, status = cb.stage(
-            "target_detect",
-            lambda: resolve_target(df, target_col=target_col),
-            timeout_s=60,
+        # --- Run full validation suite ---
+        validate_non_empty(df, name="uploaded dataset")
+        validate_min_rows(df, n=10, name="uploaded dataset")
+        df = validate_no_all_nan(df, name="uploaded dataset")
+
+        # --- Target column handling ---
+        # The caller (UI / CLI) is responsible for selecting a target column.
+        # AutoDL never auto-selects silently.  Here we only validate the choice.
+        from src.target_detection import rank_target_candidates
+
+        # Build the ranked candidate table for the report (best-first).
+        target_all_scores = None
+        try:
+            target_all_scores = rank_target_candidates(df)
+        except Exception:
+            target_all_scores = None
+
+        if target_col is None:
+            ranked_preview = target_all_scores[:5] if target_all_scores else []
+            raise AutoDLTargetAmbiguousError(
+                "No target column was provided. "
+                "Why: AutoDL never auto-selects the target — you must confirm it. "
+                "What to do: pick one of the ranked candidates shown in the UI table. "
+                f"Top candidates: {[c['col'] for c in ranked_preview]}."
+            )
+
+        detected_target = str(target_col)
+        # Validate the chosen target: must exist and have 2–50 classes.
+        n_classes = validate_target(df, detected_target)
+        logger.info(
+            "Target validated: '%s' with %d classes (provided by caller)",
+            detected_target, n_classes,
         )
-        logger.info("target detection: resolved=%s, status=%s", resolved, status)
-
-        if status == "human_required":
-            raise ValueError(
-                f"Target column is ambiguous. Ranked candidates: {resolved}. "
-                f"Please pass an explicit target_col= to disambiguate."
-            )
-        if status == "not_classification":
-            raise ValueError(
-                "No classification target detected in this dataset. "
-                "Every column scored too low to be a class label. "
-                "If this is a classification dataset, pass an explicit target_col=."
-            )
-
-        detected_target = str(resolved)
 
         try:
             preprocessor = TabularPreprocessor()
             X, y = preprocessor.fit_transform(df, target_col=detected_target)
         except ValueError as e:
-            raise ValueError(f"Tabular preprocessing error: {str(e)}")
+            raise AutoDLInputError(
+                f"Tabular preprocessing error: {str(e)}. "
+                "Why: the data could not be encoded — check for mixed types or malformed values. "
+                "What to do: clean the data and re-upload."
+            )
         except Exception as e:
-            raise ValueError(f"Unexpected error during preprocessing: {str(e)}")
+            raise AutoDLInputError(
+                f"Unexpected error during preprocessing: {str(e)}. "
+                "Why: an internal issue occurred while encoding features. "
+                "What to do: verify your data is well-formed and try again."
+            )
         num_features = X.shape[1]
         num_classes = len(set(y))
         n_samples = len(X)
@@ -354,7 +391,7 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         )
         class_names = preprocessor.target_encoder.classes_.tolist()
 
-        # Phase 1d: threshold optimization for binary
+    # Phase 1d: threshold optimization for binary
         if num_classes == 2 and hasattr(model, "predict_proba"):
             try:
                 X_arr = X.to_numpy() if hasattr(X, "to_numpy") else X
@@ -364,6 +401,8 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
                     np.asarray(y), np.asarray(y_proba_positive), strategy="youden",
                 )
                 optimal_threshold = float(thr)
+                optimal_threshold_j = float(j)
+                optimal_threshold_auc = float(auc)
                 logger.info(
                     "Optimal binary threshold=%.4f (Youden J=%.4f, AUC=%.4f) stored in metadata.",
                     thr, j, auc,
@@ -371,6 +410,12 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
             except Exception as exc:
                 logger.warning("threshold optimization skipped: %s", exc)
                 optimal_threshold = None
+                optimal_threshold_j = 0.0
+                optimal_threshold_auc = 0.0
+        else:
+            optimal_threshold = None
+            optimal_threshold_j = 0.0
+            optimal_threshold_auc = 0.0
 
     # =====================================================================
     # IMAGE DATA
@@ -386,9 +431,17 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         except FileNotFoundError as e:
             raise FileNotFoundError(str(e))
         except ValueError as e:
-            raise ValueError(f"Image dataset error: {str(e)}")
+            raise AutoDLInputError(
+                f"Image dataset error: {str(e)}. "
+                "Why: the ZIP file may not contain class subdirectories or valid images. "
+                "What to do: structure your ZIP as class_name/image.jpg and re-upload."
+            )
         except Exception as e:
-            raise ValueError(f"Unexpected error loading image dataset: {str(e)}. Please ensure the ZIP file contains valid images in class folders.")
+            raise AutoDLInputError(
+                f"Unexpected error loading image dataset: {str(e)}. "
+                "Why: the ZIP file may be corrupted or in an unsupported format. "
+                "What to do: ensure the ZIP contains valid images in class folders."
+            )
 
         try:
             ip = ImagePreprocessor()
@@ -447,31 +500,56 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         except FileNotFoundError as e:
             raise FileNotFoundError(str(e))
         except ValueError as e:
-            raise ValueError(f"Text file loading error: {str(e)}")
+            raise AutoDLInputError(
+                f"Text file loading error: {str(e)}. "
+                "Why: the file could not be read — check encoding or file integrity. "
+                "What to do: ensure it's a UTF-8 .txt file and re-upload."
+            )
         except Exception as e:
-            raise ValueError(f"Unexpected error loading text file: {str(e)}")
+            raise AutoDLInputError(
+                f"Unexpected error loading text file: {str(e)}. "
+                "Why: an internal error occurred while reading the file. "
+                "What to do: verify the file is a plain-text .txt and try again."
+            )
 
         try:
             texts, labels = parse_labelled_text(lines)
         except ValueError as e:
-            raise ValueError(f"Text parsing error: {str(e)}. Expected format: 'label<TAB>text' or 'label,text' per line.")
+            raise AutoDLInputError(
+                f"Text parsing error: {str(e)}. "
+                "Why: each line must have a label and text separated by TAB or comma. "
+                "What to do: format as 'label<TAB>text' or 'label,text' per line."
+            )
         except Exception as e:
-            raise ValueError(f"Unexpected error parsing text data: {str(e)}")
+            raise AutoDLInputError(
+                f"Unexpected error parsing text data: {str(e)}. "
+                "Why: an internal error occurred while splitting labels from text. "
+                "What to do: verify the file format and try again."
+            )
 
         if texts is None or labels is None:
-            raise ValueError(
+            raise AutoDLInputError(
                 "Text file does not appear to be labelled. "
-                "For training, please use format: 'label<TAB>text' or 'label,text' per line. "
-                "For prediction, use unlabelled text (one text per line)."
+                "Why: no label<TAB>text pattern was detected in the file. "
+                "What to do: for training, format each line as 'label<TAB>text' or 'label,text'. "
+                "For prediction, upload unlabelled text (one text per line)."
             )
 
         try:
             preprocessor = TextPreprocessor()
             X, y = preprocessor.fit_transform(texts, labels)
         except ValueError as e:
-            raise ValueError(f"Text preprocessing error: {str(e)}")
+            raise AutoDLInputError(
+                f"Text preprocessing error: {str(e)}. "
+                "Why: the text data could not be tokenized — possibly due to encoding issues. "
+                "What to do: ensure file is UTF-8 encoded with one label<TAB>text per line."
+            )
         except Exception as e:
-            raise ValueError(f"Unexpected error during text preprocessing: {str(e)}")
+            raise AutoDLInputError(
+                f"Unexpected error during text preprocessing: {str(e)}. "
+                "Why: an internal error occurred while vectorizing the text. "
+                "What to do: check that your text file is well-formed and try again."
+            )
 
         vocab_size = preprocessor.max_words
         max_len = preprocessor.max_len
@@ -529,7 +607,11 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         class_names = preprocessor.label_encoder.classes_.tolist()
 
     else:
-        raise ValueError(f"Unsupported dataset type: {dataset_type}")
+        raise AutoDLInputError(
+            f"Unsupported dataset type: {dataset_type}. "
+            "Why: this data modality is not yet supported by AutoDL. "
+            "What to do: use tabular (.csv/.xlsx), image (.zip), or text (.txt) data."
+        )
 
     # ----------------------------------------------------------------------
     # SAVE ARTIFACTS
@@ -562,16 +644,20 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         "dataset_type": dataset_type,
         "model_name": model_name,
         "class_names": class_names,
+        "seed": RANDOM_SEED,
+        "n_samples": n_samples if 'n_samples' in dir() else None,
+        "n_classes": num_classes if 'num_classes' in dir() else None,
         "metrics": {k: v for k, v in metrics.items() if k not in ("y_true", "y_pred")},
         "tuning_enabled": False,
         "model_comparison": comparison_data,
         "search_results": search_results,
         "selection_explanation_path": selection_explanation_path,
         "training_explanation_path": training_explanation_path,
-        # Phase 1d: threshold optimization for binary (None for multiclass)
+        # Phase 1d: threshold optimization for binary
         "binary_threshold": optimal_threshold,
         "binary_threshold_strategy": "youden" if optimal_threshold is not None else None,
-        "n_classes": num_classes if 'num_classes' in dir() else None,
+        "binary_threshold_j": optimal_threshold_j if 'optimal_threshold_j' in dir() else 0.0,
+        "binary_threshold_auc": optimal_threshold_auc if 'optimal_threshold_auc' in dir() else 0.0,
     }
 
     with open(os.path.join(model_dir, "meta.json"), "w") as f:
@@ -591,11 +677,37 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
             training_explanation_path=training_explanation_path
         )
     except Exception as e:
-        # Log error but don't fail the pipeline
         import traceback
         logger.warning("Could not generate enhanced PDF report: %s", e)
         logger.debug(traceback.format_exc())
         report_path = None
+
+    # ---- Generate HTML report as well ----
+    html_report_path = None
+    try:
+        from src.reporting.html_report import generate_html_report
+        from src.quality.summarize import summarize_quality
+        # Build quality summary
+        quality = summarize_quality(df if 'df' in dir() else None, detected_target if 'detected_target' in dir() else None)
+        # Build target info
+        target_info = {
+            "column": detected_target if 'detected_target' in dir() else (target_col or "N/A"),
+            "status": "user_selected",
+            "score": (
+                next((c["score"] for c in target_all_scores if c["col"] == detected_target), 0.0)
+                if target_all_scores and 'detected_target' in dir() else 0.0
+            ),
+            "all_scores": target_all_scores if 'target_all_scores' in dir() else None,
+        }
+        html_report_path = generate_html_report(
+            meta=metadata,
+            quality=quality,
+            target_info=target_info,
+            output_dir=model_dir,
+        )
+        logger.info("HTML report generated at %s", html_report_path)
+    except Exception as exc:
+        logger.warning("Could not generate HTML report: %s", exc)
 
     logger.info("train_pipeline done — model_id=%s, model_name=%s", model_id, model_name)
 
@@ -606,10 +718,14 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         "model_path": model_path,
         "preprocessor_path": preproc_path,
         "report_path": report_path,
+        "html_report_path": html_report_path,
         "dataset_type": dataset_type,
         "class_names": class_names,
         "model_comparison": comparison_data,
         "model_name": model_name,
         "selection_explanation_path": selection_explanation_path,
         "training_explanation_path": training_explanation_path,
+        "target_all_scores": target_all_scores,
+        "detected_target": detected_target if 'detected_target' in dir() else None,
+        "target_status": "user_selected",
     }

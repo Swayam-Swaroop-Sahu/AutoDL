@@ -7,6 +7,8 @@ import joblib
 import numpy as np
 from tensorflow.keras.models import load_model
 
+from src.core.exceptions import AutoDLInputError
+from src.core.validation import validate_file_exists, validate_non_empty, validate_prediction_columns
 from src.data.tabular_loader import load_tabular_data
 from src.data.image_loader import extract_image_dataset
 from src.data.text_loader import load_text_file
@@ -22,10 +24,13 @@ def predict_pipeline(model_dir: str, dataset_path: str):
     logger.info("predict_pipeline start — model_dir=%s, dataset_path=%s", model_dir, dataset_path)
 
     if not os.path.exists(model_dir):
-        raise FileNotFoundError(f"Model directory not found: {model_dir}")
+        raise FileNotFoundError(
+            f"Model directory '{model_dir}' not found. "
+            "Why: the trained model may have been deleted or moved. "
+            "What to do: train a model first, then run prediction."
+        )
 
-    if not os.path.exists(dataset_path):
-        raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
+    validate_file_exists(dataset_path)
 
     # BUGFIX Phase 1e item 12: prefer .keras; fall back to .pkl (sklearn) and legacy .h5.
     keras_path = os.path.join(model_dir, "model.keras")
@@ -49,10 +54,18 @@ def predict_pipeline(model_dir: str, dataset_path: str):
     # LOAD MODEL + PREPROCESSOR + METADATA
     # ---------------------------------------------------------
     if not os.path.exists(preproc_path):
-        raise FileNotFoundError(f"Preprocessor file not found: {preproc_path}. Please ensure the model was trained successfully.")
+        raise FileNotFoundError(
+            f"Preprocessor file not found: '{preproc_path}'. "
+            "Why: the model was trained but the preprocessor artifact is missing. "
+            "What to do: retrain the model to regenerate all artifacts."
+        )
 
     if not os.path.exists(meta_path):
-        raise FileNotFoundError(f"Metadata file not found: {meta_path}. Please ensure the model was trained successfully.")
+        raise FileNotFoundError(
+            f"Metadata file not found: '{meta_path}'. "
+            "Why: the metadata file is required for prediction configuration. "
+            "What to do: retrain the model to regenerate all artifacts."
+        )
 
     # BUGFIX Phase 1e item 12: load .keras or .pkl appropriately.
     try:
@@ -88,14 +101,33 @@ def predict_pipeline(model_dir: str, dataset_path: str):
         try:
             df = load_tabular_data(dataset_path, require_target=False)
         except (FileNotFoundError, ValueError) as e:
-            raise ValueError(f"Error loading tabular data for prediction: {str(e)}")
+            raise AutoDLInputError(
+                f"Error loading tabular data for prediction: {str(e)}. "
+                "Why: the file could not be parsed. "
+                "What to do: check the file format and re-upload."
+            )
+
+        validate_non_empty(df, name="prediction dataset")
+
+        # Check column matching
+        feature_cols = preprocessor._feature_cols if hasattr(preprocessor, '_feature_cols') else []
+        if feature_cols:
+            validate_prediction_columns(df, feature_cols)
 
         try:
             X = preprocessor.transform(df)
         except KeyError as e:
-            raise ValueError(f"Feature mismatch: {str(e)}. Prediction dataset must have the same columns as training data.")
+            raise AutoDLInputError(
+                f"Feature mismatch: {str(e)}. "
+                "Why: the prediction dataset has different columns than the training data. "
+                "What to do: ensure prediction data has the same columns as the training data."
+            )
         except Exception as e:
-            raise ValueError(f"Error preprocessing prediction data: {str(e)}")
+            raise AutoDLInputError(
+                f"Error preprocessing prediction data: {str(e)}. "
+                "Why: the data could not be transformed. "
+                "What to do: check data types and values, then re-upload."
+            )
 
         filenames = None
 

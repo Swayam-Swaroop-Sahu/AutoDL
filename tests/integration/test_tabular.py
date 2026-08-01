@@ -1,13 +1,14 @@
 """Integration test for tabular end-to-end on messy data (Phase 1f)."""
 import os
 import tempfile
-import shutil
 import numpy as np
 import pandas as pd
 import pytest
 
-from src.target_detection import resolve_target
+from src.target_detection import rank_target_candidates
 from src.preprocessing.tabular_preprocessor import TabularPreprocessor
+from src.model_selection.tabular_candidates import get_tabular_candidates
+from src.model_selection.search import successive_halving_search
 
 
 def _make_messy_csv(path, n=100, seed=0):
@@ -38,42 +39,36 @@ def _make_messy_csv(path, n=100, seed=0):
     return path
 
 
-def test_messy_target_detection_escalates_to_human_required():
-    """Two binary targets with similar likelihood → human_required escalation."""
-    with tempfile.TemporaryDirectory() as tmp:
-        csv = os.path.join(tmp, "messy.csv")
-        _make_messy_csv(csv)
-        df = pd.read_csv(csv)
-        # Resolve target without explicit override → should escalate (or pick top)
-        resolved, status = resolve_target(df)
-        # With two binary targets + duplicate column, the system must either:
-        # - select one (strong_auto/weak_auto), OR
-        # - escalate to human_required
-        assert status in ("strong_auto", "weak_auto", "human_required"), (
-            f"unexpected status: {status}"
-        )
-        # If auto-selected, the chosen column must be a real binary target
-        if status in ("strong_auto", "weak_auto"):
-            assert resolved in df.columns
-
-
-def test_explicit_target_col_completes_training():
-    """Re-run with --target-col is_churned: training must complete."""
-    from src.model_selection.tabular_candidates import get_tabular_candidates
-    from src.model_selection.search import successive_halving_search
-
+def test_rank_target_candidates_puts_binary_targets_first():
+    """Binary target columns should rank higher than continuous features."""
     with tempfile.TemporaryDirectory() as tmp:
         csv = os.path.join(tmp, "messy.csv")
         _make_messy_csv(csv)
         df = pd.read_csv(csv)
 
-        # Resolve target explicitly
+        ranked = rank_target_candidates(df)
+        top_cols = [r["col"] for r in ranked[:3]]
+
+        # Binary targets should be near the top
+        assert "is_churned" in top_cols
+        assert "is_premium" in top_cols
+        # Continuous features should rank lower
+        continuous_cols = ["age", "income", "tenure_months", "score"]
+        for c in continuous_cols:
+            idx = next((i for i, r in enumerate(ranked) if r["col"] == c), None)
+            assert idx is not None
+            # They should be ranked after the binary targets
+            assert idx >= 2
+
+
+def test_explicit_target_col_preprocesses_correctly():
+    """Preprocessing with explicit target column should work."""
+    with tempfile.TemporaryDirectory() as tmp:
+        csv = os.path.join(tmp, "messy.csv")
+        _make_messy_csv(csv)
+        df = pd.read_csv(csv)
+
         target_col = "is_churned"
-        resolved, status = resolve_target(df, target_col=target_col)
-        assert status == "override"
-        assert resolved == target_col
-
-        # Preprocess
         tp = TabularPreprocessor()
         X, y = tp.fit_transform(df, target_col=target_col)
         assert X.shape[0] == len(df)
@@ -90,9 +85,6 @@ def test_explicit_target_col_completes_training():
 
 def test_four_class_categorical_target_trains():
     """A 4-class categorical target should train and produce valid predictions."""
-    from src.model_selection.tabular_candidates import get_tabular_candidates
-    from src.model_selection.search import successive_halving_search
-
     rng = np.random.RandomState(0)
     n = 100
     df = pd.DataFrame({
