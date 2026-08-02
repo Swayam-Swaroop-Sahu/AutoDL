@@ -36,7 +36,7 @@ AutoDL/
 │   ├── model_selection/    # Hand-rolled successive-halving + per-modality candidates
 │   ├── target_detection/   # TLS scoring + escalation (resolve_target)
 │   ├── training/           # Fit loop, threshold optimization, metrics
-│   ├── explainability/     # Reports and explainability helpers
+│   ├── explainability/     # Permutation importance, narrative summaries, SHAP (opt-in), reports
 │   └── registry/           # Local model index (file-locked RMW)
 ├── tests/
 │   ├── test_target_detection.py
