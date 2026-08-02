@@ -66,6 +66,12 @@ SEARCH_MIN_RESOURCE = 100
 SEARCH_MAX_CANDIDATES = 6
 
 # -------------------------------------------------------------------------
+# EXPLAINABILITY
+# -------------------------------------------------------------------------
+# SHAP is opt-in only — set to True to enable SHAP explainability in reports.
+USE_SHAP: bool = False
+
+# -------------------------------------------------------------------------
 # STAGE TIMEOUTS (circuit breaker)
 # -------------------------------------------------------------------------
 STAGE_TIMEOUTS = {

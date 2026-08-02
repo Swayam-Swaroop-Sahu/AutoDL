@@ -28,6 +28,8 @@ from src.preprocessing.text_preprocessor import TextPreprocessor
 from src.training.trainer import train_model
 from src.training.threshold import optimize_threshold, apply_threshold
 from src.explainability.report_generator import generate_train_report
+from src.explainability.importance import compute_permutation_importance
+from src.explainability.narrative import generate_narrative
 from src.core.circuit_breaker import CircuitBreakerPipeline
 
 
@@ -234,6 +236,7 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
     search_results = None
     optimal_threshold = None  # Phase 1d: stored for binary only
     num_classes = None  # tracked for metadata
+    feature_importance = None  # Phase 2: permutation importance result
 
     # =====================================================================
     # TABULAR DATA
@@ -416,6 +419,40 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
             optimal_threshold = None
             optimal_threshold_j = 0.0
             optimal_threshold_auc = 0.0
+
+        # Phase 2: permutation feature importance (tabular only)
+        feature_importance = None
+        try:
+            X_arr = X.to_numpy() if hasattr(X, "to_numpy") else X
+            y_arr = np.asarray(y)
+            # Sample down to avoid long computation on large datasets
+            n_sample = min(X_arr.shape[0], 500)
+            if n_sample < X_arr.shape[0]:
+                sample_idx = np.random.RandomState(42).choice(
+                    X_arr.shape[0], size=n_sample, replace=False,
+                )
+                X_sample = X_arr[sample_idx]
+                y_sample = y_arr[sample_idx]
+            else:
+                X_sample = X_arr
+                y_sample = y_arr
+            # Determine feature names if available from preprocessor
+            feat_names = None
+            if hasattr(preprocessor, "feature_names_in_"):
+                feat_names = list(preprocessor.feature_names_in_)
+            elif hasattr(preprocessor, "column_names"):
+                feat_names = list(preprocessor.column_names)
+            elif hasattr(X, "columns"):
+                feat_names = list(X.columns)
+            feature_importance = compute_permutation_importance(
+                model, X_sample, y_sample,
+                n_repeats=5,
+                feature_names=feat_names,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Feature importance not available for this model type: %s", exc
+            )
 
     # =====================================================================
     # IMAGE DATA
@@ -639,6 +676,25 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         comparison_data,
     )
 
+    # Build quality summary for narrative
+    quality_summary = None
+    try:
+        if 'df' in dir() and df is not None and 'detected_target' in dir():
+            from src.quality.summarize import summarize_quality
+            quality_summary = summarize_quality(df, detected_target)
+    except Exception:
+        quality_summary = None
+
+    # Build narrative text
+    narrative_text = generate_narrative(
+        {
+            "model_name": model_name,
+            "metrics": metrics,
+            "feature_importance": feature_importance,
+        },
+        quality=quality_summary,
+    )
+
     metadata = {
         "model_id": model_id,
         "dataset_type": dataset_type,
@@ -658,6 +714,9 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         "binary_threshold_strategy": "youden" if optimal_threshold is not None else None,
         "binary_threshold_j": optimal_threshold_j if 'optimal_threshold_j' in dir() else 0.0,
         "binary_threshold_auc": optimal_threshold_auc if 'optimal_threshold_auc' in dir() else 0.0,
+        # Phase 2: feature importance and narrative
+        "feature_importance": feature_importance,
+        "narrative": narrative_text,
     }
 
     with open(os.path.join(model_dir, "meta.json"), "w") as f:

@@ -109,6 +109,38 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 <h1>🤖 AutoDL &mdash; Training Report</h1>
 
+<!-- ====== Summary / Narrative ====== -->
+{% if narrative %}
+<h2>📝 Summary</h2>
+<div class="section">
+  <div class="reason-box">
+    <p style="margin:0; font-size:1rem; line-height:1.6;">{{ narrative }}</p>
+  </div>
+</div>
+{% endif %}
+
+<!-- ====== Feature Importance ====== -->
+{% if feature_importance %}
+<h2>📈 Feature Importance</h2>
+<div class="section">
+  <p style="font-size:0.9rem; color:var(--muted);">
+    Shows how much model accuracy drops when each feature is randomly shuffled.
+    Longer bars = more important features.
+  </p>
+  <div class="chart-container">
+    {{ feat_importance_chart }}
+  </div>
+</div>
+{% elif feature_importance_unavailable %}
+<h2>📈 Feature Importance</h2>
+<div class="section">
+  <span class="badge badge-warn">⚠ Not Available</span>
+  <p style="margin-top:0.5rem; color:var(--muted);">
+    Feature importance not available for this model type.
+  </p>
+</div>
+{% endif %}
+
 <!-- ====== Run Info ====== -->
 <h2>📋 Run Information</h2>
 <div class="meta-grid">
@@ -361,6 +393,57 @@ def _build_confusion_matrix_plot(
     return pio.to_html(fig, include_plotlyjs=False, full_html=False)
 
 
+def _build_feature_importance_plot(
+    feature_importance: List[Dict[str, float]], top_n: int = 10,
+) -> str:
+    """Build a horizontal bar chart of top-N permutation feature importances."""
+    items = feature_importance[:top_n]
+    # Reverse so highest is at the top
+    items_rev = list(reversed(items))
+    features = [fi["feature"] for fi in items_rev]
+    importances = [fi["importance"] for fi in items_rev]
+    stds = [fi["std"] for fi in items_rev]
+
+    # Truncate long names
+    display_labels = [(f[:30] + "…") if len(f) > 32 else f for f in features]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        y=display_labels,
+        x=importances,
+        orientation="h",
+        error_x=dict(
+            type="data",
+            array=stds,
+            visible=True,
+            color="#94a3b8",
+        ),
+        marker=dict(
+            color="#3b82f6",
+            line=dict(color="#2563eb", width=0.5),
+        ),
+        hovertemplate=(
+            "<b>%{y}</b><br>"
+            "Importance: %{x:.4f}<br>"
+            "Std: %{error_x.array:.4f}<br>"
+            "<extra></extra>"
+        ),
+    ))
+    fig.update_layout(
+        title=dict(
+            text="Feature Importance (Permutation)",
+            font=dict(size=16),
+        ),
+        xaxis_title="Mean Importance (decrease in accuracy)",
+        height=max(300, 50 * len(items_rev)),
+        width=750,
+        margin=dict(l=10, r=30, t=50, b=60),
+        showlegend=False,
+        plot_bgcolor="#f9fafb",
+    )
+    return pio.to_html(fig, include_plotlyjs=False, full_html=False)
+
+
 def _build_html(template_vars: Dict[str, Any]) -> str:
     """Render the Jinja2 template with the given variables."""
     tmpl = Template(HTML_TEMPLATE)
@@ -440,6 +523,25 @@ def generate_html_report(
             "auc": meta.get("binary_threshold_auc", 0.0),
         }
 
+    # ---- Feature Importance Chart ----
+    feat_importance_data = meta.get("feature_importance")
+    feat_importance_chart = None
+    feature_importance_unavailable = False
+    narrative_text = meta.get("narrative")
+
+    if feat_importance_data:
+        try:
+            feat_importance_chart = _build_feature_importance_plot(
+                feat_importance_data, top_n=10,
+            )
+        except Exception as e:
+            logger.warning("Failed to build feature importance chart: %s", e)
+
+    # Detect whether we should show "not available" — only for tabular where
+    # we attempted it but got None (don't show for image/text where we never try).
+    if feat_importance_data is None and meta.get("dataset_type") == "tabular":
+        feature_importance_unavailable = True
+
     # ---- Template Variables ----
     template_vars = {
         "meta": {
@@ -452,6 +554,10 @@ def generate_html_report(
         },
         "quality": quality,
         "target": target_info,
+        "narrative": narrative_text,
+        "feature_importance": feat_importance_data,
+        "feat_importance_chart": feat_importance_chart,
+        "feature_importance_unavailable": feature_importance_unavailable,
         "model_compare": models,
         "winner": winner,
         "winner_reason": winner_reason,
