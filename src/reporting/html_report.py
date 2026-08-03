@@ -36,7 +36,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>AutoDL — Training Report</title>
+<title>AutoDL - Training Report</title>
 <style>
   :root {
     --primary: #3b82f6;
@@ -223,7 +223,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <tr><th>TLS Score</th><td>{{ "%.4f"|format(target.score) if target.score is number else target.score }}</td></tr>
   </table>
   {% if target.all_scores %}
-  <h3>All Column Scores (ranked — top first)</h3>
+  <h3>All Column Scores (ranked - top first)</h3>
   <table>
     <thead><tr><th>Rank</th><th>Column</th><th>Score</th><th>Name Signal</th><th>Cardinality Signal</th><th># Unique</th></tr></thead>
     <tbody>
@@ -597,7 +597,7 @@ def generate_html_report(
         except Exception as e:
             logger.warning("Failed to build feature importance chart: %s", e)
 
-    # Detect whether we should show "not available" — only for tabular where
+    # Detect whether we should show "not available" - only for tabular where
     # we attempted it but got None (don't show for image/text where we never try).
     if feat_importance_data is None and meta.get("dataset_type") == "tabular":
         feature_importance_unavailable = True

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""AutoDL CLI — train and predict from the command line.
+"""AutoDL CLI - train and predict from the command line.
 
 Usage:
   # Train with explicit target column
@@ -71,7 +71,7 @@ def cmd_train(args):
     from src.core.pipeline_train import train_pipeline
 
     if not os.path.exists(args.data):
-        print(f"Error: file not found — {args.data}")
+        print(f"Error: file not found - {args.data}")
         return 1
 
     target_col = args.target
@@ -113,12 +113,12 @@ def cmd_predict(args):
         print("Error: --model <model_id> is required for prediction.")
         return 1
     if not os.path.exists(args.data):
-        print(f"Error: prediction file not found — {args.data}")
+        print(f"Error: prediction file not found - {args.data}")
         return 1
 
     model_dir = os.path.join("model_registry", args.model)
     if not os.path.isdir(model_dir):
-        print(f"Error: model directory not found — {model_dir}")
+        print(f"Error: model directory not found - {model_dir}")
         print("  Run `auto.py train` first.")
         return 1
 
@@ -152,7 +152,7 @@ def cmd_predict(args):
 # ---------------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(
-        description="AutoDL — automated classification",
+        description="AutoDL - automated classification",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

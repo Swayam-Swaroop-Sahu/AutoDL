@@ -142,7 +142,7 @@ if "target_scores_df" not in st.session_state:
     st.session_state.target_scores_df = None
 
 # ─────────────────────────────────────────────────────────────────────
-# STEP 1 — Train Model
+# STEP 1 - Train Model
 # ─────────────────────────────────────────────────────────────────────
 st.header("Step 1 - Upload & Train")
 train_file = st.file_uploader(
@@ -244,7 +244,7 @@ if train_file is not None and detected_type == "tabular":
             if chosen_row and chosen_row["score"] < 0.2:
                 st.warning(
                     f"Heads up: '{chosen}' has a low target-likelihood score "
-                    f"({chosen_row['score']:.3f}). AutoDL will still use it as the target — "
+                    f"({chosen_row['score']:.3f}). AutoDL will still use it as the target - "
                     "just double-check this is the column you want to predict."
                 )
             elif chosen_row:
@@ -395,7 +395,7 @@ if train_clicked:
                 pass
 
             # 4. Show results
-            st.success(f"**Training complete!** — Model ID: `{train_result['model_id']}`")
+            st.success(f"**Training complete!** - Model ID: `{train_result['model_id']}`")
             st.markdown(f"**Dataset type:** `{train_result['dataset_type']}` | "
                         f"**Model:** `{train_result.get('model_name','?')}`")
 
@@ -423,7 +423,7 @@ if train_clicked:
                     ),
                     use_container_width=True,
                 )
-                st.info(f"**Winner:** `{winner}` — {reason}")
+                st.info(f"**Winner:** `{winner}` - {reason}")
 
             # ── Metrics ──
             metrics_path = os.path.join(train_result["model_dir"], "training_metrics.json")
@@ -516,7 +516,7 @@ if train_clicked:
                 st.code(traceback.format_exc())
 
 # ─────────────────────────────────────────────────────────────────────
-# STEP 2 — Predict using Trained Model
+# STEP 2 - Predict using Trained Model
 # ─────────────────────────────────────────────────────────────────────
 st.header("Step 2 - Predict")
 if st.session_state.model_dir:

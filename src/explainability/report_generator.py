@@ -267,7 +267,7 @@ def generate_predict_report(predictions, class_names, output_dir, dataset_type,
                             model_name="Unknown", meta=None, prediction_probas=None):
     """Generate a detailed prediction report PDF + explanation text.
 
-    `output_dir` is the model_dir (absolute path) — no relative-path traversal.
+    `output_dir` is the model_dir (absolute path) - no relative-path traversal.
     `dataset_type` is passed directly from metadata by the caller.
     `meta` is the full model metadata dict (optional, for richer context).
     `prediction_probas` is the probability matrix (N x num_classes) for confidence analysis.

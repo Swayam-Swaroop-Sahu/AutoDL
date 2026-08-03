@@ -1,6 +1,6 @@
-# AutoDL — Multimodal AutoML for Classification
+# AutoDL - Multimodal AutoML for Classification
 
-> **Automated target detection, model selection, training, and explainable reporting for tabular, image, and text classification — all local, no code required.**
+> **Automated target detection, model selection, training, and explainable reporting for tabular, image, and text classification - all local, no code required.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
@@ -12,12 +12,12 @@
 
 AutoDL is a **local-first AutoML tool** for supervised classification. It handles the full pipeline:
 
-1. **Target detection** — Ranks candidate columns via name + cardinality heuristics (TLS); user confirms selection (never auto-picks silently)
-2. **Model selection** — 3-stage successive-halving search with 3-fold stratified CV; bounded time budget; crash-resilient
-3. **Training** — Unified multiclass path (softmax + sparse_categorical_crossentropy); Youden's J threshold optimization for binary
-4. **Reliability** — Circuit breaker: every stage has wall-clock timeout + deterministic fallback; pipeline never hangs
-5. **Explainability** — Permutation importance (tabular), narrative summary, HTML/PDF report, confusion matrix, training curves
-6. **Interfaces** — Streamlit UI (drag-and-drop, live progress, charts) + CLI (`auto.py train|predict`) + optional FastAPI `/predict`
+1. **Target detection** - Ranks candidate columns via name + cardinality heuristics (TLS); user confirms selection (never auto-picks silently)
+2. **Model selection** - 3-stage successive-halving search with 3-fold stratified CV; bounded time budget; crash-resilient
+3. **Training** - Unified multiclass path (softmax + sparse_categorical_crossentropy); Youden's J threshold optimization for binary
+4. **Reliability** - Circuit breaker: every stage has wall-clock timeout + deterministic fallback; pipeline never hangs
+5. **Explainability** - Permutation importance (tabular), narrative summary, HTML/PDF report, confusion matrix, training curves
+6. **Interfaces** - Streamlit UI (drag-and-drop, live progress, charts) + CLI (`auto.py train|predict`) + optional FastAPI `/predict`
 
 **Supported modalities:** Tabular (CSV/XLSX), Image (ZIP folders), Text (labelled TXT)
 
@@ -121,10 +121,10 @@ AutoDL/
 
 ### 1. Target Detection (Tabular Only)
 AutoDL computes a **Target Likelihood Score (TLS)** for every column:
-- **Name signal (50%)** — Matches positive patterns (`target`, `label`, `is_`, `churn`, `survived`...) and penalizes negative patterns (`id`, `uuid`, `timestamp`, `email`...)
-- **Cardinality signal (50%)** — Binary=1.0, low-card categorical=0.8, high-card continuous=0.1, unique-per-row=0.0
+- **Name signal (50%)** - Matches positive patterns (`arget`, `label`, `is_`, `churn`, `survived`...) and penalizes negative patterns (`id`, `uuid`, `imestamp`, `email`...)
+- **Cardinality signal (50%)** - Binary=1.0, low-card categorical=0.8, high-card continuous=0.1, unique-per-row=0.0
 
-The ranked table is displayed; **user confirmation is mandatory** — no silent auto-selection.
+The ranked table is displayed; **user confirmation is mandatory** - no silent auto-selection.
 
 ### 2. Model Selection
 **Successive-halving** with 3 stages:
@@ -135,7 +135,7 @@ The ranked table is displayed; **user confirmation is mandatory** — no silent 
 | 3 | 100% | 40% (240s) | Winner |
 
 - 3-fold stratified CV per trial
-- Metric: **balanced_accuracy** (macro recall — handles imbalance)
+- Metric: **balanced_accuracy** (macro recall - handles imbalance)
 - Crash resilience: failed candidates score 0.0; search continues
 - Timeout enforcement: stage budget exceeded → stop new trials, promote survivors
 
@@ -206,12 +206,12 @@ uv run pytest tests/test_circuit_breaker.py -v
 
 ## Limitations
 
-- **Classification only** — No regression, multi-label, or mixed-modal
-- **Local execution** — No hosted cloud; artifacts in `model_registry/`
-- **Tabular models** — `GradientBoostingClassifier` (sklearn); LightGBM/XGBoost not included (compile dependency)
-- **Text models** — TF-IDF + sklearn; DistilBERT deferred (offline, no HF downloads)
-- **Streamlit training** — Synchronous; not suited for long jobs, multi-user, or GPU scheduling
-- **Feature count** — Designed for ≤1K features; 10K+ requires external dimensionality reduction
+- **Classification only** - No regression, multi-label, or mixed-modal
+- **Local execution** - No hosted cloud; artifacts in `model_registry/`
+- **Tabular models** - `GradientBoostingClassifier` (sklearn); LightGBM/XGBoost not included (compile dependency)
+- **Text models** - TF-IDF + sklearn; DistilBERT deferred (offline, no HF downloads)
+- **Streamlit training** - Synchronous; not suited for long jobs, multi-user, or GPU scheduling
+- **Feature count** - Designed for ≤1K features; 10K+ requires external dimensionality reduction
 
 ---
 
@@ -227,4 +227,4 @@ uv run pytest tests/test_circuit_breaker.py -v
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT - see [LICENSE](LICENSE)
