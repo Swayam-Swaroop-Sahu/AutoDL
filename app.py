@@ -1,5 +1,5 @@
 """
-Streamlit UI for AutoDL — Automated Classification & Insights.
+Streamlit UI for AutoDL - Automated Classification & Insights.
 
 User journey:
   1. Upload labelled dataset → preview shown
@@ -54,11 +54,11 @@ logger = get_logger(__name__)
 # Streamlit Config
 # ─────────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="AutoDL — Automated Classification",
+    page_title="AutoDL - Automated Classification",
     page_icon="",
     layout="wide",
 )
-st.title("AutoDL — Automated Classification & Insights")
+st.title("AutoDL - Automated Classification & Insights")
 st.write("Upload a labelled dataset to train a model, then upload unlabelled data for prediction.")
 
 # ─────────────────────────────────────────────────────────────────────
@@ -144,7 +144,7 @@ if "target_scores_df" not in st.session_state:
 # ─────────────────────────────────────────────────────────────────────
 # STEP 1 — Train Model
 # ─────────────────────────────────────────────────────────────────────
-st.header("Step 1 — Upload & Train")
+st.header("Step 1 - Upload & Train")
 train_file = st.file_uploader(
     "Upload labelled dataset (CSV, XLSX, TXT, ZIP for images)",
     type=["csv", "xlsx", "txt", "zip"],
@@ -518,7 +518,7 @@ if train_clicked:
 # ─────────────────────────────────────────────────────────────────────
 # STEP 2 — Predict using Trained Model
 # ─────────────────────────────────────────────────────────────────────
-st.header("Step 2 — Predict")
+st.header("Step 2 - Predict")
 if st.session_state.model_dir:
     st.info(f"Using trained model: **`{st.session_state.model_id}`**")
     predict_file = st.file_uploader(
@@ -589,6 +589,6 @@ else:
 # ─────────────────────────────────────────────────────────────────────
 st.markdown("---")
 st.caption(
-    "AutoDL — Automated Classification with transparent validation | "
+    "AutoDL - Automated Classification with transparent validation | "
     f"Seed: {RANDOM_SEED} | Model Registry: `{MODEL_REGISTRY_DIR}`"
 )

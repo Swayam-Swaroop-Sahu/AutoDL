@@ -250,6 +250,8 @@ def predict_pipeline(model_dir: str, dataset_path: str):
             output_dir=model_dir,
             dataset_type=dataset_type,
             model_name=model_name,
+            meta=meta,
+            prediction_probas=preds_proba if preds_proba.ndim == 2 else None,
         )
     except Exception as e:
         logger.warning("Could not generate prediction report: %s", e)
