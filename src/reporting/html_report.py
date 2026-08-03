@@ -69,6 +69,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 0.75rem; margin: 1rem 0;
   }
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem; margin: 1rem 0;
+  }
   .meta-item {
     background: var(--table-stripe); border-radius: var(--radius);
     padding: 0.6rem 1rem; border: 1px solid var(--border);
@@ -79,8 +84,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   th, td { border: 1px solid var(--border); padding: 10px 12px; text-align: left; font-size: 0.92rem; }
   th { background: var(--table-header); color: var(--text); font-weight: 600; }
   tbody tr:nth-child(even) { background: var(--table-stripe); }
-  .winner-row { background: var(--winner-bg) !important; font-weight: bold; }
-  .winner-row::before { content: '★ '; color: #f59e0b; }
+  .winner-row { background: var(--winner-bg) !important; font-weight: bold; border-left: 4px solid #f59e0b; }
   .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.82rem; font-weight: 500; }
   .badge-ok { background: var(--ok-bg); color: var(--ok-text); }
   .badge-warn { background: var(--warn-bg); color: var(--warn-text); }
@@ -107,11 +111,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
 
-<h1>🤖 AutoDL &mdash; Training Report</h1>
+<h1>AutoDL &mdash; Training Report</h1>
 
 <!-- ====== Summary / Narrative ====== -->
 {% if narrative %}
-<h2>📝 Summary</h2>
+<h2>Summary</h2>
 <div class="section">
   <div class="reason-box">
     <p style="margin:0; font-size:1rem; line-height:1.6;">{{ narrative }}</p>
@@ -121,7 +125,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 <!-- ====== Feature Importance ====== -->
 {% if feature_importance %}
-<h2>📈 Feature Importance</h2>
+<h2>Feature Importance</h2>
 <div class="section">
   <p style="font-size:0.9rem; color:var(--muted);">
     Shows how much model accuracy drops when each feature is randomly shuffled.
@@ -132,9 +136,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   </div>
 </div>
 {% elif feature_importance_unavailable %}
-<h2>📈 Feature Importance</h2>
+<h2>Feature Importance</h2>
 <div class="section">
-  <span class="badge badge-warn">⚠ Not Available</span>
+  <span class="badge badge-warn">Not Available</span>
   <p style="margin-top:0.5rem; color:var(--muted);">
     Feature importance not available for this model type.
   </p>
@@ -142,7 +146,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 {% endif %}
 
 <!-- ====== Run Info ====== -->
-<h2>📋 Run Information</h2>
+<h2>Run Information</h2>
 <div class="meta-grid">
   <div class="meta-item"><span class="label">Run ID</span><br><span class="value">{{ meta.model_id }}</span></div>
   <div class="meta-item"><span class="label">Timestamp</span><br><span class="value">{{ meta.timestamp }}</span></div>
@@ -152,15 +156,40 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <div class="meta-item"><span class="label">Classes</span><br><span class="value">{{ meta.n_classes }}</span></div>
 </div>
 
+<!-- ====== Dataset Preview ====== -->
+{% if dataset_preview and dataset_preview.rows %}
+<h2>Dataset Preview (First 5 Rows)</h2>
+<div class="section" style="overflow-x: auto;">
+  <table>
+    <thead>
+      <tr>
+        {% for col in dataset_preview.columns %}
+        <th>{{ col }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in dataset_preview.rows %}
+      <tr>
+        {% for col in dataset_preview.columns %}
+        <td>{{ row[col] }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 <!-- ====== Data Quality ====== -->
-<h2>🔍 Data Quality</h2>
+<h2>Data Quality</h2>
 <div class="section">
 {% if quality and quality.summary %}
   {% if quality.passed %}
-    <span class="badge badge-ok">✓ All Clear</span>
+    <span class="badge badge-ok">All Clear</span>
     <p>{{ quality.summary }}</p>
   {% else %}
-    <span class="badge badge-warn">⚠ {{ quality.warnings|length }} Issue(s)</span>
+    <span class="badge badge-warn">{{ quality.warnings|length }} Issue(s)</span>
     <p>{{ quality.summary }}</p>
     <table>
       <thead><tr><th>Column / Class</th><th>Issue</th><th>Detail</th></tr></thead>
@@ -182,7 +211,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 <!-- ====== Target Detection ====== -->
 {% if target %}
-<h2>🎯 Target Detection</h2>
+<h2>Target Detection</h2>
 <div class="section">
   <table>
     <tr><th>Selected Target</th><td><strong>{{ target.column }}</strong></td></tr>
@@ -215,7 +244,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 {% endif %}
 
 <!-- ====== Model Comparison ====== -->
-<h2>🏆 Model Comparison</h2>
+<h2>Model Comparison</h2>
 <div class="section">
   <table id="model-compare-table">
     <thead>
@@ -228,7 +257,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     {% for m in model_compare %}
     <tr class="{{ 'winner-row' if m.name == winner else '' }}">
       <td>{{ loop.index }}</td>
-      <td>{{ m.name }}{{ ' ★' if m.name == winner else '' }}</td>
+      <td>{{ m.name }}{{ ' [Selected]' if m.name == winner else '' }}</td>
       <td>{{ "%.4f"|format(m.score) if m.score is float else m.score }}</td>
       <td><span class="badge badge-info">Stage {{ m.stage }}</span></td>
       <td>{{ m.description | truncate(80) }}</td>
@@ -245,8 +274,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </div>
 
 <!-- ====== Final Metrics ====== -->
-<h2>📊 Final Metrics (on held-out validation set)</h2>
+<h2>Final Metrics (on held-out validation set)</h2>
 <div class="section">
+  {% if metrics_summary %}
+  <div class="metric-grid">
+    {% for label, val in metrics_summary.items() %}
+    <div class="meta-item" style="text-align: center; padding: 1rem;">
+      <div class="label">{{ label }}</div>
+      <div class="value" style="font-size: 1.75rem; color: var(--primary); margin-top: 0.25rem;">
+        {% if val is float %}{{ "%.4f"|format(val) }}{% else %}{{ val }}{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
   <table>
     <thead><tr><th>Metric</th><th>Value</th></tr></thead>
     <tbody>
@@ -267,15 +308,34 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 <!-- ====== Confusion Matrix ====== -->
 {% if conf_mat %}
-<h2>🟦 Confusion Matrix</h2>
+<h2>Confusion Matrix</h2>
 <div class="section chart-container">
   {{ conf_mat }}
 </div>
 {% endif %}
 
+<!-- ====== Training Curves ====== -->
+{% if loss_plot_base64 or acc_plot_base64 %}
+<h2>Training Curves</h2>
+<div class="section" style="display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap;">
+  {% if loss_plot_base64 %}
+  <div style="text-align: center;">
+    <h4 style="margin-bottom: 0.5rem; color: #374151;">Loss Curve</h4>
+    <img src="data:image/png;base64,{{ loss_plot_base64 }}" alt="Loss Curve" style="max-width: 450px; width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--border);" />
+  </div>
+  {% endif %}
+  {% if acc_plot_base64 %}
+  <div style="text-align: center;">
+    <h4 style="margin-bottom: 0.5rem; color: #374151;">Accuracy Curve</h4>
+    <img src="data:image/png;base64,{{ acc_plot_base64 }}" alt="Accuracy Curve" style="max-width: 450px; width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--border);" />
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
 {% if binary_threshold %}
 <!-- ====== Binary Threshold ====== -->
-<h2>⚖️ Binary Decision Threshold</h2>
+<h2>Binary Decision Threshold</h2>
 <div class="section">
   <div class="threshold-box">
     <div class="threshold-value">{{ "%.4f"|format(binary_threshold.threshold) }}</div>
@@ -542,8 +602,38 @@ def generate_html_report(
     if feat_importance_data is None and meta.get("dataset_type") == "tabular":
         feature_importance_unavailable = True
 
+    # ---- Loss & Accuracy Plots (Base64) ----
+    import base64
+    loss_plot_base64 = None
+    acc_plot_base64 = None
+    plots_dir = os.path.join(run_dir, "plots")
+    loss_path = os.path.join(plots_dir, "loss.png")
+    acc_path = os.path.join(plots_dir, "accuracy.png")
+    if os.path.exists(loss_path):
+        try:
+            with open(loss_path, "rb") as f:
+                loss_plot_base64 = base64.b64encode(f.read()).decode("utf-8")
+        except Exception as e:
+            logger.warning("Failed to load loss plot: %s", e)
+    if os.path.exists(acc_path):
+        try:
+            with open(acc_path, "rb") as f:
+                acc_plot_base64 = base64.b64encode(f.read()).decode("utf-8")
+        except Exception as e:
+            logger.warning("Failed to load accuracy plot: %s", e)
+
+    # ---- Key Metrics Summary Cards ----
+    metrics_summary = {}
+    for mk in ["accuracy", "precision", "recall", "f1_score", "balanced_accuracy"]:
+        if mk in raw_metrics and isinstance(raw_metrics[mk], (int, float)):
+            metrics_summary[mk.replace("_", " ").title()] = raw_metrics[mk]
+
     # ---- Template Variables ----
     template_vars = {
+        "dataset_preview": meta.get("dataset_preview"),
+        "loss_plot_base64": loss_plot_base64,
+        "acc_plot_base64": acc_plot_base64,
+        "metrics_summary": metrics_summary,
         "meta": {
             "model_id": meta.get("model_id", "unknown"),
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

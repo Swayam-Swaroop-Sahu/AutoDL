@@ -695,6 +695,18 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         quality=quality_summary,
     )
 
+    # Dataset preview
+    dataset_preview = None
+    if 'df' in dir() and df is not None and not df.empty:
+        try:
+            preview_df = df.head(5)
+            dataset_preview = {
+                "columns": preview_df.columns.tolist(),
+                "rows": preview_df.to_dict(orient="records"),
+            }
+        except Exception:
+            dataset_preview = None
+
     metadata = {
         "model_id": model_id,
         "dataset_type": dataset_type,
@@ -709,6 +721,7 @@ def train_pipeline(dataset_path: str, enable_tuning: bool = False, tuning_config
         "search_results": search_results,
         "selection_explanation_path": selection_explanation_path,
         "training_explanation_path": training_explanation_path,
+        "dataset_preview": dataset_preview,
         # Phase 1d: threshold optimization for binary
         "binary_threshold": optimal_threshold,
         "binary_threshold_strategy": "youden" if optimal_threshold is not None else None,

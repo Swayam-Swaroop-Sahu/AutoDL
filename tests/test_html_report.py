@@ -117,3 +117,46 @@ def test_html_no_binary_threshold_for_multiclass():
         with open(path, "r", encoding="utf-8") as f:
             html = f.read()
         assert "Binary Threshold" not in html
+
+
+def test_html_report_includes_dataset_preview():
+    """When dataset_preview is in meta, a Dataset Preview table is rendered."""
+    with tempfile.TemporaryDirectory() as tmp:
+        meta = _meta_dict()
+        meta["model_id"] = "run_06"
+        meta["dataset_preview"] = {
+            "columns": ["feature_a", "feature_b", "target"],
+            "rows": [
+                {"feature_a": 1.0, "feature_b": 2.0, "target": 0},
+                {"feature_a": 3.0, "feature_b": 4.0, "target": 1},
+            ],
+        }
+        path = generate_html_report(meta, output_dir=tmp)
+        with open(path, "r", encoding="utf-8") as f:
+            html = f.read()
+        assert "Dataset Preview (First 5 Rows)" in html
+        assert "feature_a" in html
+        assert "feature_b" in html
+
+
+def test_html_report_includes_training_curves_and_metric_cards():
+    """When loss.png / accuracy.png exist in plots/, Training Curves are embedded."""
+    with tempfile.TemporaryDirectory() as tmp:
+        plots_dir = os.path.join(tmp, "plots")
+        os.makedirs(plots_dir, exist_ok=True)
+        # Create dummy plot files
+        with open(os.path.join(plots_dir, "loss.png"), "wb") as f:
+            f.write(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01")
+        with open(os.path.join(plots_dir, "accuracy.png"), "wb") as f:
+            f.write(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01")
+
+        meta = _meta_dict()
+        meta["model_id"] = "run_07"
+        path = generate_html_report(meta, output_dir=tmp)
+        with open(path, "r", encoding="utf-8") as f:
+            html = f.read()
+        assert "Training Curves" in html
+        assert "data:image/png;base64," in html
+        assert "Accuracy" in html
+        assert "Precision" in html
+        assert "Recall" in html

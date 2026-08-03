@@ -55,10 +55,10 @@ logger = get_logger(__name__)
 # ─────────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="AutoDL — Automated Classification",
-    page_icon="🤖",
+    page_icon="",
     layout="wide",
 )
-st.title("🤖 AutoDL — Automated Classification & Insights")
+st.title("AutoDL — Automated Classification & Insights")
 st.write("Upload a labelled dataset to train a model, then upload unlabelled data for prediction.")
 
 # ─────────────────────────────────────────────────────────────────────
@@ -144,7 +144,7 @@ if "target_scores_df" not in st.session_state:
 # ─────────────────────────────────────────────────────────────────────
 # STEP 1 — Train Model
 # ─────────────────────────────────────────────────────────────────────
-st.header("📁 Step 1 — Upload & Train")
+st.header("Step 1 — Upload & Train")
 train_file = st.file_uploader(
     "Upload labelled dataset (CSV, XLSX, TXT, ZIP for images)",
     type=["csv", "xlsx", "txt", "zip"],
@@ -160,7 +160,7 @@ if train_file is not None:
                 df_preview = pd.read_csv(train_file, nrows=5, on_bad_lines="warn")
             else:
                 df_preview = pd.read_excel(train_file, nrows=5)
-            st.subheader("👀 Preview (first 5 rows)")
+            st.subheader("Preview (first 5 rows)")
             st.dataframe(df_preview, use_container_width=True)
     except Exception:
         st.info("Preview not available for this file type.")
@@ -171,14 +171,14 @@ if train_file is not None:
     try:
         dataset_path_temp = save_uploaded_file(train_file, prefix="detect")
         detected_type = detect_dataset_type(dataset_path_temp)
-        st.info(f"📌 **Detected dataset type:** `{detected_type}`")
+        st.info(f"**Detected dataset type:** `{detected_type}`")
     except Exception:
         pass
 
 # ─────────────────────────────────────────────────────────────────────
 # Target detection for tabular data (runs after file upload before train clicked)
 # ─────────────────────────────────────────────────────────────────────
-st.subheader("🎯 Target Column")
+st.subheader("Target Column")
 if 'target_col' not in st.session_state:
     st.session_state['target_col'] = None
 target_collected = st.session_state.get('target_col')
@@ -226,7 +226,7 @@ if train_file is not None and detected_type == "tabular":
                 row = next((r for r in ranked if r["col"] == c), None)
                 if row is None:
                     return c
-                flag = " ★" if c == col_options[0] else ""
+                flag = " (recommended)" if c == col_options[0] else ""
                 return f"{c}  (score={row['score']:.3f}, n_unique={row['n_unique']}){flag}"
             
             chosen = st.selectbox(
@@ -258,7 +258,7 @@ if train_file is not None and detected_type == "tabular":
 # ─────────────────────────────────────────────────────────────────────
 # Model Selection & Tuning
 # ─────────────────────────────────────────────────────────────────────
-st.subheader("⚙️ Model Selection")
+st.subheader("Model Selection")
 col1, col2 = st.columns(2)
 
 with col1:
@@ -297,7 +297,7 @@ if manual_model_override:
 # Tuning config
 user_tuning_config = None
 if enable_tuning:
-    with st.expander("🔧 Tuning Settings"):
+    with st.expander("Tuning Settings"):
         max_trials = st.slider("Max trials", 2, 30, 8,
             help="Number of hyperparameter combinations to try.")
         epochs_per_trial = st.slider("Epochs per trial", 3, 30, 10)
@@ -315,7 +315,7 @@ if enable_tuning:
 # ─────────────────────────────────────────────────────────────────────
 # TRAIN BUTTON
 # ─────────────────────────────────────────────────────────────────────
-train_clicked = st.button("🚀 Train Model", type="primary", use_container_width=True)
+train_clicked = st.button("Train Model", type="primary", use_container_width=True)
 
 if train_clicked:
     if train_file is None:
@@ -352,20 +352,20 @@ if train_clicked:
 
             # 2. Run training with st.status() progress
             with st.status(
-                "🧠 Training model...",
+                "Training model...",
                 expanded=True,
                 state="running",
             ) as training_status:
-                st.write("🔍 Detecting dataset type...")
+                st.write("Detecting dataset type...")
                 time.sleep(0.2)
 
-                st.write("📊 Loading & validating data...")
+                st.write("Loading & validating data...")
                 time.sleep(0.2)
 
-                st.write("🎯 Detecting target column...")
+                st.write("Detecting target column...")
                 time.sleep(0.2)
 
-                st.write("🔬 Running model search & CV...")
+                st.write("Running model search & CV...")
                 train_result = train_pipeline(
                     dataset_path,
                     enable_tuning=enable_tuning,
@@ -375,9 +375,9 @@ if train_clicked:
                     target_col=target_collected,
                 )
 
-                st.write("📈 Computing metrics & generating report...")
+                st.write("Computing metrics & generating report...")
                 training_status.update(
-                    label="✅ Training complete!",
+                    label="Training complete!",
                     state="complete",
                     expanded=False,
                 )
@@ -395,7 +395,7 @@ if train_clicked:
                 pass
 
             # 4. Show results
-            st.success(f"✅ **Training complete!** — Model ID: `{train_result['model_id']}`")
+            st.success(f"**Training complete!** — Model ID: `{train_result['model_id']}`")
             st.markdown(f"**Dataset type:** `{train_result['dataset_type']}` | "
                         f"**Model:** `{train_result.get('model_name','?')}`")
 
@@ -406,7 +406,7 @@ if train_clicked:
             reason = comparison.get("reason", "")
 
             if models:
-                st.subheader("🏆 Model Comparison (CV Scores)")
+                st.subheader("Model Comparison (CV Scores)")
                 comp_df = pd.DataFrame(models)
                 display_cols = ["name", "score", "stage", "description", "params"]
                 display_cols = [c for c in display_cols if c in comp_df.columns]
@@ -431,7 +431,7 @@ if train_clicked:
                 with open(metrics_path, "r") as f:
                     m = json.load(f)
                 # Show summary metrics
-                st.subheader("📈 Validation Metrics")
+                st.subheader("Validation Metrics")
                 metric_cols = st.columns(4)
                 for i, (key, val) in enumerate([
                     ("Accuracy", m.get("accuracy")),
@@ -447,7 +447,7 @@ if train_clicked:
             # ── Confusion Matrix (Plotly) ──
             cm_data = m.get("confusion_matrix")
             if cm_data:
-                st.subheader("🟦 Confusion Matrix")
+                st.subheader("Confusion Matrix")
                 class_names = train_result.get("class_names")
                 fig_cm = _build_confusion_matrix_fig(cm_data, class_names)
                 st.plotly_chart(fig_cm, use_container_width=True)
@@ -455,7 +455,7 @@ if train_clicked:
             # ── Training Plots ──
             plots_dir = os.path.join(train_result["model_dir"], "plots")
             if os.path.isdir(plots_dir):
-                st.subheader("📉 Training Curves")
+                st.subheader("Training Curves")
                 cols = st.columns(2)
                 loss_path = os.path.join(plots_dir, "loss.png")
                 acc_path = os.path.join(plots_dir, "accuracy.png")
@@ -483,7 +483,7 @@ if train_clicked:
                 report_name = f"AutoDL_report_{train_result['model_id']}.pdf"
 
             if report_file:
-                st.subheader("📥 Download Report")
+                st.subheader("Download Report")
                 with open(report_file, "rb") as f:
                     st.download_button(
                         label=report_label,
@@ -496,7 +496,7 @@ if train_clicked:
             # ── Classification Report ──
             cls_report_path = os.path.join(train_result.get("model_dir", ""), "classification_report.txt")
             if os.path.exists(cls_report_path):
-                with st.expander("📄 Classification Report (Detailed)"):
+                with st.expander("Classification Report (Detailed)"):
                     with open(cls_report_path) as f:
                         st.text(f.read())
 
@@ -518,7 +518,7 @@ if train_clicked:
 # ─────────────────────────────────────────────────────────────────────
 # STEP 2 — Predict using Trained Model
 # ─────────────────────────────────────────────────────────────────────
-st.header("🔮 Step 2 — Predict")
+st.header("Step 2 — Predict")
 if st.session_state.model_dir:
     st.info(f"Using trained model: **`{st.session_state.model_id}`**")
     predict_file = st.file_uploader(
@@ -527,7 +527,7 @@ if st.session_state.model_dir:
         key="predict_file",
     )
 
-    if st.button("🔍 Run Prediction"):
+    if st.button("Run Prediction"):
         if predict_file is None:
             st.error(
                 "**No prediction file uploaded.** "
@@ -555,12 +555,12 @@ if st.session_state.model_dir:
                         lambda i: classes[int(i)] if 0 <= int(i) < len(classes) else str(i)
                     )
 
-                st.subheader("🔢 Predictions (first 50 rows)")
+                st.subheader("Predictions (first 50 rows)")
                 st.dataframe(df_pred.head(50), use_container_width=True)
 
                 # Download CSV
                 st.download_button(
-                    "📥 Download Predictions CSV",
+                    "Download Predictions CSV",
                     data=df_pred.to_csv(index=False).encode("utf-8"),
                     file_name=f"AutoDL_predictions_{st.session_state.model_id}.csv",
                 )
@@ -570,7 +570,7 @@ if st.session_state.model_dir:
                 if report_path and os.path.exists(report_path):
                     with open(report_path, "rb") as f:
                         st.download_button(
-                            "📥 Download Prediction Report (PDF)",
+                            "Download Prediction Report (PDF)",
                             data=f,
                             file_name=f"AutoDL_predict_{st.session_state.model_id}.pdf",
                         )
@@ -582,13 +582,13 @@ if st.session_state.model_dir:
                 with st.expander("Technical Details"):
                     st.code(traceback.format_exc())
 else:
-    st.info("👆 Train a model first to unlock prediction mode.")
+    st.info("Train a model first to unlock prediction mode.")
 
 # ─────────────────────────────────────────────────────────────────────
 # Footer
 # ─────────────────────────────────────────────────────────────────────
 st.markdown("---")
 st.caption(
-    "🤖 AutoDL — Automated Classification with transparent validation | "
+    "AutoDL — Automated Classification with transparent validation | "
     f"Seed: {RANDOM_SEED} | Model Registry: `{MODEL_REGISTRY_DIR}`"
 )

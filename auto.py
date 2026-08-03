@@ -94,13 +94,13 @@ def cmd_train(args):
     print("Starting training...")
     try:
         result = train_pipeline(args.data, target_col=target_col)
-        print(f"✅ Training complete! Model ID: {result['model_id']}")
+        print(f"Training complete! Model ID: {result['model_id']}")
         print(f"   Model: {result.get('model_name', '?')}")
         print(f"   Type:  {result['dataset_type']}")
         print(f"   Dir:   {result['model_dir']}")
         print(f"Use this ID to predict: --model {result['model_id']}")
     except Exception as e:
-        print(f"❌ Training failed: {e}")
+        print(f"Training failed: {e}")
         return 1
     return 0
 
@@ -142,7 +142,7 @@ def cmd_predict(args):
                 f.write(f"{i},{p},{lbl}\n")
         print(f"Wrote predictions to: {out_path}")
     except Exception as e:
-        print(f"❌ Prediction failed: {e}")
+        print(f"Prediction failed: {e}")
         return 1
     return 0
 
