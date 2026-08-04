@@ -79,6 +79,46 @@ uv run python auto.py serve --model <model_id> --port 8000
 
 ---
 
+## Models Used
+
+AutoDL combines **deep learning** and **classical ML** models per modality. The successive-halving search compares all of them with cross-validation and picks the best-fit winner.
+
+### Tabular (CSV / XLSX)
+
+**Deep Learning (MLPs):**
+- `MLP-Small` - 1 hidden layer (64 units, ReLU), early stopping
+- `MLP-Medium` - 2 hidden layers (128->64, ReLU), L2 regularization
+- `MLP-Deep` - 3 hidden layers (256->128->64, ReLU), low L2
+
+**Classical ML:**
+- `GradientBoostingClassifier` - gradient-boosted trees (sklearn)
+- `RandomForestClassifier` - bagged decision trees
+- `LogisticRegression` - linear baseline with L2
+
+### Images (ZIP)
+
+**Deep Learning:**
+- `Small-CNN` - 3-conv-layer CNN trained from scratch (32->64->128 filters, GAP)
+- `MobileNetV2` - transfer learning (frozen backbone + LR head, ~3.5M params)
+- `ResNet50` - transfer learning (frozen backbone + LR head, ~25M params)
+- `EfficientNetB0` - transfer learning (frozen backbone + LR head, ~5M params)
+
+*Note:* Heads on top of frozen feature extractors use Logistic Regression. There is no pure-classical image path; images rely on neural feature extractors.
+
+### Text (TXT)
+
+**Deep Learning (Keras):**
+- `BiLSTM` - bidirectional LSTM (64 units) + dense head
+- `LSTM` - single-layer LSTM (64 units) + dense head
+- `Text-CNN` - 1D conv (128 filters, kernel=5) + global max pool + dense head
+
+**Classical ML (TF-IDF + sklearn):**
+- `TFIDF_LinearSVM` - TF-IDF (uni+bi-grams) + Linear SVM (calibrated)
+- `TFIDF_LogReg` - TF-IDF + L2 logistic regression
+- `TFIDF_ComplementNB` - TF-IDF + Complement Naive Bayes (imbalanced-friendly)
+
+---
+
 ## Supported Data Formats
 
 | Modality | Training Input | Prediction Input | Requirements |

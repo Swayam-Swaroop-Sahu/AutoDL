@@ -1,19 +1,13 @@
 """Image candidate factories for the successive-halving search.
 
-Decision (FINAL_PROJECT_PLAN.md §2 "Image model family"): keep Keras/TF transfer
-learning, tiered by dataset size (MobileNetV3-Small / ResNet-18-equivalent /
-EfficientNetB0).
+Decision (FINAL_PROJECT_PLAN.md §2 "Image model family"): include both end-to-end
+deep learning (Small-CNN trained from scratch) and transfer learning (MobileNetV2,
+ResNet50, EfficientNetB0 with frozen backbones). All candidates use TensorFlow/Keras.
 
-This is the ONE modality that still uses TensorFlow in v2. To stay compatible with
-the sklearn `cross_val_score` loop in `search.py`, candidates here are sklearn
-`Pipeline` objects whose first stage is a *frozen feature extractor* (the transfer-
-learning backbone) and whose second stage is a sklearn head. Frozen-backbone feature
-extraction is the standard fast transfer-learning recipe and avoids re-fitting TF
-graphs per CV fold (which would be far too slow / brittle for laptop CV). A small
-cache keeps extraction to one pass per backbone across folds.
-
-TF import is deferred so the search module + tests can be imported in environments
-without TF installed.
+To stay compatible with the sklearn `cross_val_score` loop in `search.py`, the
+transfer-learning candidates are sklearn `Pipeline` objects whose first stage is
+a *frozen feature extractor* and whose second stage is a sklearn head. The Small-CNN
+candidate uses a Keras wrapper that builds and fits the model per CV fold.
 """
 
 from __future__ import annotations
@@ -21,7 +15,6 @@ from __future__ import annotations
 import numpy as np
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from .search import Candidate
@@ -97,17 +90,40 @@ def _image_pipeline(backbone, head, name, desc, params, pros, cons):
 
 
 def get_image_candidates(n_samples: int = 0) -> list:
-    """Tier by dataset size (plan §2): small→MobileNetV2, medium→ResNet50, big→EfficientNetB0.
+    """Return DL candidates for image classification.
 
-    Returned as a ranked list; the successive-halving loop will pick the survivor.
+    Includes (all deep learning):
+      - Small-CNN: end-to-end CNN trained from scratch (good for small datasets)
+      - MobileNetV2: transfer learning (lightweight, ~3.5M params)
+      - ResNet50: transfer learning (deeper, ~25M params)
+      - EfficientNetB0: transfer learning (balanced, ~5M params)
+
+    All use frozen backbones + sklearn head, except Small-CNN which is end-to-end.
     """
+    from sklearn.ensemble import RandomForestClassifier
+
     candidates = []
+
+    # --- End-to-end DL: Small CNN (trained from scratch) ---
+    # Built via a KerasModelWrapper for sklearn cross_val_score compatibility.
+    candidates.append(Candidate(
+        name="Small-CNN",
+        factory=lambda: _SmallCNNClassifier(epochs=8, batch_size=32,
+                                            input_shape=(64, 64, 3)),
+        description="3-layer CNN from scratch (32->64->128 filters, GAP, dense).",
+        params="filters=32/64/128, epochs=8",
+        pros="No pretrained weights; works offline; good for small datasets.",
+        cons="Lower ceiling than transfer learning; needs more data to shine.",
+    ))
+
+    # --- Transfer learning (frozen backbone + sklearn head) ---
     if n_samples < 500:
         order = ["MobileNetV2", "ResNet50", "EfficientNetB0"]
     elif n_samples < 5000:
         order = ["ResNet50", "MobileNetV2", "EfficientNetB0"]
     else:
         order = ["EfficientNetB0", "ResNet50", "MobileNetV2"]
+
     descs = {
         "MobileNetV2": ("MobileNetV2 frozen backbone + LR head.",
                         "~3.5M backbone, frozen"),
@@ -125,3 +141,65 @@ def get_image_candidates(n_samples: int = 0) -> list:
             cons="Heavier; one TF import per run.",
         ))
     return candidates
+
+
+# ----------------------------------------------------------------------
+# Keras DL wrapper for sklearn cross_val_score compatibility (Small-CNN)
+# ----------------------------------------------------------------------
+class _SmallCNNClassifier(BaseEstimator, TransformerMixin):
+    """Sklearn-compatible wrapper around the from-scratch Small-CNN.
+
+    Resizes incoming images to `input_shape` and trains the CNN end-to-end per fold.
+    """
+
+    def __init__(self, epochs=8, batch_size=32, input_shape=(64, 64, 3)):
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.input_shape = input_shape
+
+    def fit(self, X, y):
+        import tensorflow as tf
+        from tensorflow.keras import utils
+        from src.model_selection.image_models import build_small_cnn
+
+        X_arr = self._to_batch(X)
+        num_classes = len(np.unique(y))
+        y_cat = utils.to_categorical(y, num_classes=num_classes)
+        self.model_ = build_small_cnn(self.input_shape, num_classes)
+        self.model_.fit(
+            X_arr, y_cat,
+            epochs=self.epochs,
+            batch_size=self.batch_size,
+            verbose=0,
+            validation_split=0.0,
+        )
+        self.classes_ = np.unique(y)
+        return self
+
+    def predict(self, X):
+        X_arr = self._to_batch(X)
+        proba = self.model_.predict(X_arr, verbose=0)
+        return np.argmax(proba, axis=1)
+
+    def predict_proba(self, X):
+        X_arr = self._to_batch(X)
+        return self.model_.predict(X_arr, verbose=0)
+
+    def _to_batch(self, X):
+        """Coerce X (list of paths or ndarray) into a float32 batch at input_shape."""
+        import numpy as np
+        from tensorflow.keras.preprocessing.image import load_img, img_to_array
+
+        h, w, _ = self.input_shape
+        if isinstance(X, np.ndarray) and X.ndim == 4:
+            # Already batched images — resize if needed
+            if X.shape[1] != h or X.shape[2] != w:
+                import tensorflow as tf
+                X = tf.image.resize(X, (h, w)).numpy()
+            return X.astype("float32")
+        # List of file paths
+        arrs = []
+        for p in X:
+            img = load_img(p, target_size=(h, w))
+            arrs.append(img_to_array(img))
+        return np.stack(arrs).astype("float32")
