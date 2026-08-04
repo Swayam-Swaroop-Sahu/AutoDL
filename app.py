@@ -4,7 +4,7 @@ Streamlit UI for AutoDL - Automated Classification & Insights.
 User journey:
   1. Upload labelled dataset → preview shown
   2. Target detection runs → ranked TLS table displayed
-  3. If ambiguous → st.radio() to confirm target
+  3. If ambiguous → st.selectbox() to confirm target
   4. User clicks "Train Model" → st.status() progress
   5. Post-training → model comparison table, metrics, confusion matrix,
      download report button
@@ -12,7 +12,7 @@ User journey:
 
 Exit flows:
   - Empty CSV → clear error message
-  - Ambiguous target → ranked table + radio
+  - Ambiguous target → ranked table + selectbox
   - Training → progress bar inside st.status
   - Post-training → comparison table + report download
 """
@@ -58,8 +58,55 @@ st.set_page_config(
     page_icon="",
     layout="wide",
 )
+
+# ─────────────────────────────────────────────────────────────────────
+# WELCOME / OVERVIEW SECTION
+# ─────────────────────────────────────────────────────────────────────
 st.title("AutoDL - Automated Classification & Insights")
-st.write("Upload a labelled dataset to train a model, then upload unlabelled data for prediction.")
+
+with st.expander("**What is AutoDL?** (Click to expand)", expanded=True):
+    st.markdown("""
+**AutoDL** is a local, no-code AutoML tool for **supervised classification**. It automates the full pipeline:
+- **Target detection** - Identifies which column is the label (tabular only)
+- **Model selection** - Compares multiple algorithms using cross-validation
+- **Training** - Fits the best model with optimized settings
+- **Explainable reports** - Generates HTML/PDF reports with metrics, confusion matrices, and plain-English summaries
+
+**Supported data types:**
+| Type | Training Format | Prediction Format |
+|------|----------------|-------------------|
+| **Tabular** | CSV / XLSX (with target column) | CSV / XLSX (same features, no target) |
+| **Images** | ZIP with class folders (e.g., `cats/`, `dogs/`) | ZIP of images |
+| **Text** | TXT file with `label<TAB>text` per line | TXT file (one text per line) |
+
+**Key principle:** AutoDL **never auto-selects the target column silently**. It ranks candidates and **you must confirm** the target before training.
+""")
+
+st.markdown("---")
+
+st.subheader("How to Use This App")
+col1, col2 = st.columns(2)
+with col1:
+    st.markdown("""
+**Step 1 - Train a Model**
+1. Upload your **labelled** dataset
+2. Review the auto-detected dataset type
+3. **Confirm the target column** (tabular only)
+4. Adjust model settings if needed
+5. Click **Train Model**
+6. Download the report when done
+""")
+with col2:
+    st.markdown("""
+**Step 2 - Make Predictions**
+1. After training completes, go to Step 2
+2. Upload **unlabelled** data (same format)
+3. Click **Run Prediction**
+4. View/download predictions as CSV
+5. Download the prediction report (PDF)
+""")
+
+st.markdown("---")
 
 # ─────────────────────────────────────────────────────────────────────
 # Helper: save uploaded file to a temp path
@@ -145,6 +192,16 @@ if "target_scores_df" not in st.session_state:
 # STEP 1 - Train Model
 # ─────────────────────────────────────────────────────────────────────
 st.header("Step 1 - Upload & Train")
+
+st.markdown("""
+**Upload your labelled dataset** to start training. The file must contain both features and the target/label column.
+
+**Accepted formats:**
+- **Tabular:** `.csv`, `.xlsx` (must have a target column)
+- **Images:** `.zip` with class-named folders (e.g., `class_a/image.jpg`)
+- **Text:** `.txt` with `label<TAB>text` or `label,text` per line
+""")
+
 train_file = st.file_uploader(
     "Upload labelled dataset (CSV, XLSX, TXT, ZIP for images)",
     type=["csv", "xlsx", "txt", "zip"],
@@ -162,6 +219,7 @@ if train_file is not None:
                 df_preview = pd.read_excel(train_file, nrows=5)
             st.subheader("Preview (first 5 rows)")
             st.dataframe(df_preview, use_container_width=True)
+            st.caption("Verify the data looks correct. The target column should be present.")
     except Exception:
         st.info("Preview not available for this file type.")
 
@@ -172,18 +230,30 @@ if train_file is not None:
         dataset_path_temp = save_uploaded_file(train_file, prefix="detect")
         detected_type = detect_dataset_type(dataset_path_temp)
         st.info(f"**Detected dataset type:** `{detected_type}`")
+        if detected_type == "tabular":
+            st.caption("Tabular data detected. You'll need to confirm the target column below.")
+        elif detected_type == "image":
+            st.caption("Image data detected. Class labels are inferred from folder names in the ZIP.")
+        elif detected_type == "text":
+            st.caption("Text data detected. Labels are parsed from the first token of each line.")
     except Exception:
         pass
 
 # ─────────────────────────────────────────────────────────────────────
-# Target detection for tabular data (runs after file upload before train clicked)
+# Target detection for tabular data
 # ─────────────────────────────────────────────────────────────────────
-st.subheader("Target Column")
-if 'target_col' not in st.session_state:
-    st.session_state['target_col'] = None
-target_collected = st.session_state.get('target_col')
-
 if train_file is not None and detected_type == "tabular":
+    st.subheader("Target Column Selection (Required)")
+
+    st.markdown("""
+**AutoDL ranks every column by how likely it is to be the classification target.**  
+The ranking uses:
+- **Name patterns** (e.g., `target`, `label`, `is_`, `churn`, `survived` score higher)
+- **Cardinality** (binary columns score highest; unique-ID columns score zero)
+
+**You must select the target column below.** AutoDL never auto-picks silently.
+""")
+
     try:
         # Load the full dataframe for target detection
         dataset_path_temp = save_uploaded_file(train_file, prefix="target")
@@ -203,8 +273,7 @@ if train_file is not None and detected_type == "tabular":
             )
         else:
             st.markdown(
-                "#### Ranked target candidates "
-                "(higher score = more likely the classification target)"
+                "#### Ranked Target Candidates (higher score = more likely the target)"
             )
             ranked_df = pd.DataFrame(ranked)
             ranked_df.insert(0, "rank", range(1, len(ranked_df) + 1))
@@ -248,24 +317,40 @@ if train_file is not None and detected_type == "tabular":
                     "just double-check this is the column you want to predict."
                 )
             elif chosen_row:
-                st.caption(f"Using target column: `{chosen}` (score {chosen_row['score']:.3f}).")
+                st.success(f"Using target column: `{chosen}` (score {chosen_row['score']:.3f})")
     except AutoDLInputError as e:
         st.error(f"**Data Error:** {str(e)}")
     except Exception as e:
         st.warning(f"Target detection skipped: {e}")
+else:
+    if train_file is not None and detected_type != "tabular":
+        st.subheader("Target Column Selection")
+        st.info(f"For **{detected_type}** data, the target is inferred automatically from the file structure "
+                "(folder names for images, first token for text). No selection needed.")
+    target_collected = None
 
 
 # ─────────────────────────────────────────────────────────────────────
 # Model Selection & Tuning
 # ─────────────────────────────────────────────────────────────────────
-st.subheader("Model Selection")
+st.subheader("Model Settings")
+
+st.markdown("""
+**AutoDL uses successive-halving search** to find the best model:
+- Tests multiple architectures with 3-fold cross-validation
+- Promotes top 50% through 3 fidelity stages (10%, 50%, 100% data)
+- Completes within a 10-minute time budget
+
+You can optionally enable hyperparameter tuning or manually pick a model architecture.
+""")
+
 col1, col2 = st.columns(2)
 
 with col1:
     enable_tuning = st.checkbox(
         "Enable hyperparameter tuning",
         value=False,
-        help="Search multiple hyperparameter combinations for the best model.",
+        help="Search multiple hyperparameter combinations for the best model. Increases training time.",
     )
 
 with col2:
@@ -298,6 +383,7 @@ if manual_model_override:
 user_tuning_config = None
 if enable_tuning:
     with st.expander("Tuning Settings"):
+        st.caption("Adjust the search budget. More trials = longer training.")
         max_trials = st.slider("Max trials", 2, 30, 8,
             help="Number of hyperparameter combinations to try.")
         epochs_per_trial = st.slider("Epochs per trial", 3, 30, 10)
@@ -315,7 +401,28 @@ if enable_tuning:
 # ─────────────────────────────────────────────────────────────────────
 # TRAIN BUTTON
 # ─────────────────────────────────────────────────────────────────────
-train_clicked = st.button("Train Model", type="primary", use_container_width=True)
+st.markdown("---")
+
+# Check if ready to train
+ready_to_train = train_file is not None
+if detected_type == "tabular":
+    ready_to_train = ready_to_train and target_collected is not None
+
+if not ready_to_train:
+    missing = []
+    if train_file is None:
+        missing.append("upload a dataset")
+    if detected_type == "tabular" and target_collected is None:
+        missing.append("select a target column")
+    st.warning(f"To enable training, please: {', '.join(missing)}")
+
+train_clicked = st.button(
+    "Train Model", 
+    type="primary", 
+    use_container_width=True,
+    disabled=not ready_to_train,
+    help="Start training with the current settings" if ready_to_train else "Complete the steps above first"
+)
 
 if train_clicked:
     if train_file is None:
@@ -365,7 +472,7 @@ if train_clicked:
                 st.write("Detecting target column...")
                 time.sleep(0.2)
 
-                st.write("Running model search & CV...")
+                st.write("Running model search & CV (this may take a few minutes)...")
                 train_result = train_pipeline(
                     dataset_path,
                     enable_tuning=enable_tuning,
@@ -407,6 +514,7 @@ if train_clicked:
 
             if models:
                 st.subheader("Model Comparison (CV Scores)")
+                st.caption("Models tested during successive-halving search. The winner is highlighted.")
                 comp_df = pd.DataFrame(models)
                 display_cols = ["name", "score", "stage", "description", "params"]
                 display_cols = [c for c in display_cols if c in comp_df.columns]
@@ -432,6 +540,7 @@ if train_clicked:
                     m = json.load(f)
                 # Show summary metrics
                 st.subheader("Validation Metrics")
+                st.caption("Metrics computed on held-out validation set (not training data).")
                 metric_cols = st.columns(4)
                 for i, (key, val) in enumerate([
                     ("Accuracy", m.get("accuracy")),
@@ -448,6 +557,7 @@ if train_clicked:
             cm_data = m.get("confusion_matrix")
             if cm_data:
                 st.subheader("Confusion Matrix")
+                st.caption("Rows = true class, Columns = predicted class. Diagonal = correct predictions.")
                 class_names = train_result.get("class_names")
                 fig_cm = _build_confusion_matrix_fig(cm_data, class_names)
                 st.plotly_chart(fig_cm, use_container_width=True)
@@ -465,7 +575,7 @@ if train_clicked:
                 if os.path.exists(acc_path):
                     cols[1].image(acc_path, caption="Accuracy Curve", use_container_width=True)
                 if os.path.exists(cm_png_path):
-                    st.image(cm_png_path, caption="Confusion Matrix", use_container_width=True)
+                    st.image(cm_png_path, caption="Confusion Matrix (PNG)", use_container_width=True)
 
             # ── Download Report Button ──
             report_file = None
@@ -484,6 +594,7 @@ if train_clicked:
 
             if report_file:
                 st.subheader("Download Report")
+                st.caption("The report includes model comparison, metrics, confusion matrix, training curves, feature importance, and a narrative summary.")
                 with open(report_file, "rb") as f:
                     st.download_button(
                         label=report_label,
@@ -518,16 +629,26 @@ if train_clicked:
 # ─────────────────────────────────────────────────────────────────────
 # STEP 2 - Predict using Trained Model
 # ─────────────────────────────────────────────────────────────────────
-st.header("Step 2 - Predict")
+st.markdown("---")
+st.header("Step 2 - Predict on New Data")
+
 if st.session_state.model_dir:
-    st.info(f"Using trained model: **`{st.session_state.model_id}`**")
+    st.success(f"Model ready: **`{st.session_state.model_id}`** ({st.session_state.dataset_type})")
+    
+    st.markdown("""
+**Upload unlabelled data** to get predictions. The file must match the training data format:
+- **Tabular:** CSV/XLSX with the **same feature columns** (no target column needed)
+- **Images:** ZIP of images (folder structure optional)
+- **Text:** TXT with one text per line (no labels)
+""")
+
     predict_file = st.file_uploader(
         "Upload unlabelled data (same type as training)",
         type=["csv", "xlsx", "txt", "zip"],
         key="predict_file",
     )
 
-    if st.button("Run Prediction"):
+    if st.button("Run Prediction", disabled=predict_file is None, type="primary", use_container_width=True):
         if predict_file is None:
             st.error(
                 "**No prediction file uploaded.** "
@@ -556,6 +677,7 @@ if st.session_state.model_dir:
                     )
 
                 st.subheader("Predictions (first 50 rows)")
+                st.caption("Full predictions available for download below.")
                 st.dataframe(df_pred.head(50), use_container_width=True)
 
                 # Download CSV
@@ -563,6 +685,7 @@ if st.session_state.model_dir:
                     "Download Predictions CSV",
                     data=df_pred.to_csv(index=False).encode("utf-8"),
                     file_name=f"AutoDL_predictions_{st.session_state.model_id}.csv",
+                    use_container_width=True,
                 )
 
                 # Prediction report
@@ -573,7 +696,10 @@ if st.session_state.model_dir:
                             "Download Prediction Report (PDF)",
                             data=f,
                             file_name=f"AutoDL_predict_{st.session_state.model_id}.pdf",
+                            use_container_width=True,
                         )
+                else:
+                    st.info("No prediction report generated for this run.")
 
             except AutoDLInputError as e:
                 st.error(f"**Prediction Error:** {str(e)}")
@@ -582,7 +708,8 @@ if st.session_state.model_dir:
                 with st.expander("Technical Details"):
                     st.code(traceback.format_exc())
 else:
-    st.info("Train a model first to unlock prediction mode.")
+    st.info("**Train a model first** (Step 1) to unlock prediction mode.")
+    st.caption("Once you complete training, this section will become active.")
 
 # ─────────────────────────────────────────────────────────────────────
 # Footer
